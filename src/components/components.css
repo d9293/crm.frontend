@@ -1,0 +1,344 @@
+/* Component styles. All values come from tokens.css. */
+
+/* --- StatusBadge --------------------------------------------------------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--crm-space-2);
+  border-radius: var(--crm-radius-pill);
+  font-size: var(--crm-font-size-meta);
+  line-height: var(--crm-line-height-meta);
+  font-weight: var(--crm-weight-medium);
+  white-space: nowrap;
+}
+
+.badge--neutral {
+  background: var(--crm-surface-alt);
+  color: var(--crm-text);
+  box-shadow: inset 0 0 0 1px var(--crm-border);
+}
+
+.badge--success {
+  background: var(--crm-success-bg);
+  color: var(--crm-success-text);
+}
+
+.badge--warning {
+  background: var(--crm-warning-bg);
+  color: var(--crm-warning-text);
+}
+
+.badge--danger {
+  background: var(--crm-danger-bg);
+  color: var(--crm-danger-text);
+}
+
+/* --- HoldTimer ----------------------------------------------------------- */
+
+.hold-timer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--crm-space-2);
+  padding: var(--crm-space-3) var(--crm-space-4);
+  border-radius: var(--crm-radius-control);
+  background: var(--crm-warning-bg);
+  color: var(--crm-warning-text);
+}
+
+.hold-timer--expired,
+.hold-timer--offline,
+.hold-timer--checking {
+  background: var(--crm-surface-alt);
+  color: var(--crm-text);
+  box-shadow: inset 0 0 0 1px var(--crm-border);
+}
+
+.hold-timer__value {
+  font-size: var(--crm-font-size-section);
+  font-weight: var(--crm-weight-semibold);
+}
+
+.hold-timer__text {
+  font-size: var(--crm-font-size-label);
+}
+
+/* --- fields -------------------------------------------------------------- */
+
+.field {
+  display: grid;
+  gap: var(--crm-space-1);
+}
+
+.field__label {
+  font-size: var(--crm-font-size-label);
+  font-weight: var(--crm-weight-medium);
+}
+
+.field__row {
+  display: flex;
+  align-items: center;
+  gap: var(--crm-space-2);
+}
+
+.field__input {
+  min-height: var(--crm-control-height);
+  width: 100%;
+  padding: 0 var(--crm-space-3);
+  background: var(--crm-surface);
+  color: var(--crm-text);
+  border: 1px solid var(--crm-control-border);
+  border-radius: var(--crm-radius-control);
+  /* 16px prevents iOS Safari zooming the viewport on focus. */
+  font-size: var(--crm-font-size-input);
+}
+
+textarea.field__input {
+  padding: var(--crm-space-2) var(--crm-space-3);
+  min-height: calc(var(--crm-control-height) * 1.5);
+  resize: vertical;
+}
+
+.field__input:disabled {
+  background: var(--crm-surface-alt);
+  color: var(--crm-text-muted);
+  cursor: not-allowed;
+}
+
+.field__input[aria-invalid='true'] {
+  border-color: var(--crm-danger-text);
+  /* Doubled outline rather than colour alone. */
+  box-shadow: inset 0 0 0 1px var(--crm-danger-text);
+}
+
+.field__suffix {
+  color: var(--crm-text-muted);
+}
+
+.field__hint {
+  font-size: var(--crm-font-size-meta);
+  color: var(--crm-text-muted);
+}
+
+.field__error {
+  font-size: var(--crm-font-size-meta);
+  color: var(--crm-danger-text);
+  font-weight: var(--crm-weight-medium);
+}
+
+/* --- InlineAlert --------------------------------------------------------- */
+
+.alert {
+  display: grid;
+  gap: var(--crm-space-2);
+  justify-items: start;
+  padding: var(--crm-space-4);
+  border-radius: var(--crm-radius-control);
+  font-size: var(--crm-font-size-label);
+}
+
+.alert--info {
+  background: var(--crm-surface-alt);
+  color: var(--crm-text);
+  box-shadow: inset 0 0 0 1px var(--crm-border);
+}
+
+.alert--warning {
+  background: var(--crm-warning-bg);
+  color: var(--crm-warning-text);
+}
+
+.alert--error {
+  background: var(--crm-danger-bg);
+  color: var(--crm-danger-text);
+}
+
+/* Uncertain outcome is visually distinct from a plain error: the operation may
+ * have succeeded, and the user must not read it as a clean failure. */
+.alert--uncertain {
+  background: var(--crm-warning-bg);
+  color: var(--crm-warning-text);
+  box-shadow: inset 0 0 0 2px var(--crm-warning-text);
+}
+
+.alert__title {
+  font-size: var(--crm-font-size-body);
+}
+
+.alert__reference {
+  margin: 0;
+}
+
+/* --- DataTable ----------------------------------------------------------- */
+
+.table-shell {
+  display: grid;
+  gap: var(--crm-space-3);
+}
+
+.table-shell__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--crm-space-4);
+}
+
+.table-shell__empty {
+  padding: var(--crm-space-6);
+  text-align: center;
+  background: var(--crm-surface);
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-radius-panel);
+}
+
+/* Local horizontal scroll so the document never scrolls sideways. */
+.table-scroll {
+  overflow-x: auto;
+  background: var(--crm-surface);
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-radius-panel);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--crm-font-size-table);
+  line-height: var(--crm-line-height-table);
+}
+
+.table th,
+.table td {
+  padding: 0 var(--crm-space-4);
+  height: var(--crm-row-height);
+  text-align: left;
+  border-bottom: 1px solid var(--crm-border);
+  white-space: nowrap;
+}
+
+.table thead th {
+  background: var(--crm-surface-alt);
+  font-weight: var(--crm-weight-semibold);
+  position: sticky;
+  top: 0;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table__cell--numeric {
+  text-align: right;
+}
+
+.table-skeleton {
+  display: grid;
+  gap: 1px;
+  background: var(--crm-surface);
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-radius-panel);
+  overflow: hidden;
+}
+
+.table-skeleton__row {
+  height: var(--crm-row-height);
+  background: var(--crm-surface-alt);
+}
+
+/* --- DecisionDialog ------------------------------------------------------ */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: var(--crm-space-4);
+  background: rgb(23 43 35 / 45%);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 440px;
+  display: grid;
+  gap: var(--crm-space-4);
+  padding: var(--crm-space-5);
+  background: var(--crm-surface);
+  color: var(--crm-text);
+  border-radius: var(--crm-radius-panel);
+  box-shadow: var(--crm-shadow-floating);
+}
+
+.dialog__title {
+  font-size: var(--crm-font-size-section);
+}
+
+.dialog__title:focus-visible {
+  outline: 2px solid var(--crm-focus);
+  outline-offset: 4px;
+}
+
+.dialog__consequence {
+  font-size: var(--crm-font-size-body);
+}
+
+.dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--crm-space-2);
+  justify-content: flex-end;
+}
+
+/* On a narrow screen the footer must never be clipped or pushed off-screen. */
+@media (max-width: 480px) {
+  .dialog__actions {
+    flex-direction: column-reverse;
+  }
+
+  .dialog__actions .shell__control {
+    width: 100%;
+  }
+}
+
+/* --- ResourceSlot -------------------------------------------------------- */
+
+.slot {
+  display: grid;
+  gap: 2px;
+  min-height: var(--crm-control-height);
+  padding: var(--crm-space-2) var(--crm-space-3);
+  text-align: left;
+  background: var(--crm-surface);
+  color: var(--crm-text);
+  border: 1px solid var(--crm-control-border);
+  border-radius: var(--crm-radius-control);
+  cursor: pointer;
+}
+
+.slot__time {
+  font-size: var(--crm-font-size-label);
+  font-weight: var(--crm-weight-medium);
+}
+
+.slot__state {
+  font-size: var(--crm-font-size-meta);
+  color: var(--crm-text-muted);
+}
+
+.slot--selected {
+  background: var(--crm-primary);
+  color: var(--crm-on-primary);
+  border-color: var(--crm-primary);
+}
+
+.slot--selected .slot__state {
+  color: var(--crm-on-primary);
+}
+
+.slot--held,
+.slot--unavailable,
+.slot--closed {
+  background: var(--crm-surface-alt);
+  color: var(--crm-text-muted);
+  border-style: dashed;
+  cursor: not-allowed;
+}

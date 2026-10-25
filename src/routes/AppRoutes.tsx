@@ -20,6 +20,7 @@ import CustomerShell from '../shells/CustomerShell'
 import CoachShell from '../shells/CoachShell'
 import LoginPage from '../pages/LoginPage'
 import PlaceholderPage from '../pages/PlaceholderPage'
+import Gallery from '../dev/Gallery'
 import { NotFound, RequireAuth, RequireCapability } from './guards'
 
 interface PageSpec {
@@ -414,6 +415,14 @@ export default function AppRoutes() {
           </RequireAuth>
         }
       />
+
+      {/*
+        Component state gallery for the S0 design review. The condition is
+        statically false in a production build, so Vite removes both this route
+        and the Gallery module. It is deliberately outside RequireAuth: it
+        renders only synthetic data and must be reviewable without a session.
+      */}
+      {import.meta.env.DEV && <Route path="/dev/gallery" element={<Gallery />} />}
 
       <Route path="*" element={<NotFound />} />
     </Routes>

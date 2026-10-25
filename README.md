@@ -17,9 +17,16 @@ This repository implements the documents in the specification repository. Read t
 
 ## Status
 
-**FE-00a complete** — design tokens, three role shells, routing for all P01–P21, and the money/date utilities. Every page is reachable behind real permission guards; page content is placeholder.
+**FE-00 complete.** Foundation only — no page has real content yet.
 
-**FE-00b next** — the `ui-ux.md` §9 component contracts (`StatusBadge`, `HoldTimer`, `MoneyField`, `DataTable`, `DecisionDialog`, …), the API client, contract fixtures, and the component state gallery.
+| Part | Delivered |
+|---|---|
+| FE-00a | Design tokens, staff/customer/coach shells, P01–P21 routing behind real guards, money and `Asia/Almaty` date utilities |
+| FE-00b | API client, error taxonomy, contract fixtures, eight §9 components, component state gallery |
+
+Components live at **`/dev/gallery`** in a dev build — all documented variants on one page, with the theme switcher, for the §12 design review.
+
+Next: **FE-01/02/03** (S1 page content), which need BE-01/02/03 and therefore D-01. `frontend.md` forbids closing those tickets on mocked data alone.
 
 ## Requirements
 
@@ -45,14 +52,18 @@ npm run api:types  # regenerate src/api/schema.d.ts from the backend contract
 ```
 src/
   styles/     tokens.css (the only place colours live), base.css
-  api/        schema.d.ts (generated — do not edit), types.ts (named aliases)
+  api/        schema.d.ts (generated — do not edit), types.ts, client.ts,
+              errors.ts, fixtures.ts
+  lib/        format.ts (money, Asia/Almaty dates), money.ts (parsing)
   auth/       context.ts (hook), AuthProvider.tsx — capabilities and locations
   location/   selected ACE/CSKA location and the cache scopeKey
   theme/      light / dark / system preference
+  components/ StatusBadge, HoldTimer, MoneyField, DataTable, InlineAlert,
+              DecisionDialog, ResourceSlot
   shells/     StaffShell, CustomerShell, CoachShell, navigation.ts
   routes/     AppRoutes.tsx (P01-P21 table), guards.tsx
   pages/      LoginPage, PlaceholderPage
-  dev/        synthetic preview users — dev builds only
+  dev/        preview users and the component gallery — dev builds only
 ```
 
 Context objects and hooks live in `context.ts`, providers in `*Provider.tsx`. Splitting them keeps fast refresh working: a file exporting both a component and a hook loses it.
@@ -64,6 +75,20 @@ Context objects and hooks live in `context.ts`, providers in `*Provider.tsx`. Sp
 ### Theme
 
 Three states must all work: system default, explicit light, explicit dark. Every token is defined on bare `:root` first, then overridden in both the `prefers-color-scheme: dark` block and `[data-theme="dark"]`. A colour defined only inside a media query is missing in one of the three states.
+
+### Timezone
+
+`Asia/Almaty` is currently **UTC+5** — Kazakhstan unified its timezones on 1 March 2024, moving Almaty from UTC+6. Instants before that date are still +06.
+
+Always convert through the IANA zone identifier via `lib/format.ts`. Never hand-write a fixed offset: `+06:00` is an hour wrong for current data and `+05:00` is an hour wrong for 2023 data. This matters for any migrated record under D-17.
+
+### Rules the code enforces for you
+
+Three rules are centralised so a page cannot break them by accident:
+
+- **`api/client.ts`** distinguishes a known rejection (`ApiError`) from an unknown outcome (`NetworkError`/`TimeoutError` on a mutation). Guard every retry affordance on a financial or booking command with `isOutcomeUnknown`.
+- **`beginCommand()`** creates an idempotency key **once** per logical operation. Pass the same key on every retry — generating a fresh one is how a single payment becomes two.
+- **`HoldTimer`** derives remaining time from `server_time` and a monotonic clock, never `Date.now()`. Reaching zero locally triggers a server refresh and never renders an outcome.
 
 ## Configuration
 

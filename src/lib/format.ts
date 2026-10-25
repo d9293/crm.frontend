@@ -10,6 +10,18 @@
  *    a laptop with the wrong zone, must still see club-local times.
  */
 
+/**
+ * Business timezone.
+ *
+ * `Asia/Almaty` is currently **UTC+5**. Kazakhstan unified its timezones on
+ * 1 March 2024, moving Almaty from UTC+6 to UTC+5. Historical instants before
+ * that date are still +06, which is precisely why the zone name is used
+ * everywhere and a fixed offset never is: anything hand-written as `+06:00`
+ * is an hour wrong today, and anything hand-written as `+05:00` is an hour
+ * wrong for 2023 data.
+ *
+ * Always pass this identifier to `Intl`. Never compute an offset.
+ */
 export const BUSINESS_TIMEZONE = 'Asia/Almaty'
 export const LOCALE = 'ru-KZ'
 
