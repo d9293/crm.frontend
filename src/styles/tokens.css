@@ -1,0 +1,179 @@
+/*
+ * Design tokens — the single source of colour, type, spacing and radius.
+ *
+ * Values come from `development/ui-ux.md` section 3. Components must use the
+ * semantic tokens below, never raw hex values: a one-off colour in a component
+ * is invisible to theme switching and to the UX-10 contrast review.
+ *
+ * Theme resolution has three states, and all three must work:
+ *
+ *   1. No preference set   -> bare :root (light) or the prefers-color-scheme
+ *                             block (dark), following the operating system.
+ *   2. Explicit light      -> [data-theme="light"] wins over the OS being dark.
+ *   3. Explicit dark       -> [data-theme="dark"] wins over the OS being light.
+ *
+ * Every colour therefore has its definition on bare :root first. A token
+ * defined only inside a media query or a [data-theme] block would be missing
+ * in one of the three states.
+ */
+
+:root {
+  /* --- surfaces and text (light) ------------------------------------------ */
+  --crm-bg: #f5f6f3;
+  --crm-surface: #ffffff;
+  --crm-surface-alt: #ebf0eb;
+  --crm-text: #172b23;
+  --crm-text-muted: #52645b;
+  --crm-border: #d3ddd5;
+  --crm-control-border: #788a7d;
+
+  /* --- action and focus (light) ------------------------------------------- */
+  --crm-primary: #176344;
+  --crm-on-primary: #ffffff;
+  --crm-focus: #155cc4;
+
+  /* --- semantic status (light) -------------------------------------------- */
+  --crm-success-bg: #e4f3e9;
+  --crm-success-text: #205b39;
+  --crm-warning-bg: #fff0cc;
+  --crm-warning-text: #76510c;
+  --crm-danger-bg: #fce8e6;
+  --crm-danger-text: #9b2e29;
+
+  /* --- typography ---------------------------------------------------------
+   * System UI sans-serif with Cyrillic support. No external font is loaded:
+   * ui-ux.md section 3 permits bundling Inter only after a licensing review,
+   * and a webfont request would be a render-blocking dependency.
+   */
+  --crm-font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+
+  --crm-font-size-body: 1rem;        /* 16/24 */
+  --crm-line-height-body: 1.5;
+  --crm-font-size-table: 0.875rem;   /* 14/20 */
+  --crm-line-height-table: 1.4286;
+  --crm-font-size-meta: 0.75rem;     /* 12/18 — minimum permitted size */
+  --crm-line-height-meta: 1.5;
+  --crm-font-size-label: 0.875rem;   /* 14/20 */
+  --crm-font-size-input: 1rem;       /* 16/24 — below 16px iOS zooms on focus */
+  --crm-font-size-section: 1.25rem;  /* 20/28 */
+  --crm-line-height-section: 1.4;
+  --crm-font-size-title: 1.75rem;    /* 28/36 */
+  --crm-line-height-title: 1.2857;
+
+  --crm-weight-regular: 400;
+  --crm-weight-medium: 500;
+  --crm-weight-semibold: 600;
+
+  /* --- spacing scale ------------------------------------------------------ */
+  --crm-space-1: 4px;
+  --crm-space-2: 8px;
+  --crm-space-3: 12px;
+  --crm-space-4: 16px;
+  --crm-space-5: 24px;
+  --crm-space-6: 32px;
+  --crm-space-7: 48px;
+
+  /* Content padding steps down with viewport width. */
+  --crm-content-padding: var(--crm-space-6);
+
+  /* --- radius ------------------------------------------------------------- */
+  --crm-radius-panel: 12px;
+  --crm-radius-control: 8px;
+  --crm-radius-pill: 999px;
+
+  /* --- control and row sizing --------------------------------------------
+   * 44px is the minimum effective touch target from the accessibility
+   * acceptance targets in ui-ux.md section 11.
+   */
+  --crm-control-height: 44px;
+  --crm-row-height: 48px;
+  --crm-row-height-comfortable: 56px;
+
+  /* --- layout ------------------------------------------------------------- */
+  --crm-rail-width: 232px;
+  --crm-drawer-width: 480px;    /* within the 440-520px range */
+  --crm-summary-width: 320px;   /* T6 customer booking summary */
+  --crm-access-width: 400px;    /* T1 centred access form */
+
+  /* --- elevation ----------------------------------------------------------
+   * Shadows are for floating surfaces only. Structure uses borders, so a
+   * flat list of panels does not turn into a field of drop shadows.
+   */
+  --crm-shadow-floating: 0 8px 24px rgb(23 43 35 / 12%);
+
+  /* --- motion -------------------------------------------------------------
+   * 120-180ms, subtle. Essential countdown and state information is never
+   * animated.
+   */
+  --crm-transition: 140ms ease;
+
+  color-scheme: light;
+}
+
+/* Dark via operating-system preference, unless light was chosen explicitly. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --crm-bg: #111815;
+    --crm-surface: #1a2420;
+    --crm-surface-alt: #25332c;
+    --crm-text: #edf5ef;
+    --crm-text-muted: #adbeb3;
+    --crm-border: #43564a;
+    --crm-control-border: #83998a;
+
+    --crm-primary: #a7e2be;
+    --crm-on-primary: #10271b;
+    --crm-focus: #9bc4ff;
+
+    --crm-success-bg: #203d2d;
+    --crm-success-text: #b1e6be;
+    --crm-warning-bg: #443719;
+    --crm-warning-text: #f6d889;
+    --crm-danger-bg: #432824;
+    --crm-danger-text: #ffb9b2;
+
+    --crm-shadow-floating: 0 8px 24px rgb(0 0 0 / 40%);
+
+    color-scheme: dark;
+  }
+}
+
+/* Dark chosen explicitly — must also win when the OS is light. */
+:root[data-theme="dark"] {
+  --crm-bg: #111815;
+  --crm-surface: #1a2420;
+  --crm-surface-alt: #25332c;
+  --crm-text: #edf5ef;
+  --crm-text-muted: #adbeb3;
+  --crm-border: #43564a;
+  --crm-control-border: #83998a;
+
+  --crm-primary: #a7e2be;
+  --crm-on-primary: #10271b;
+  --crm-focus: #9bc4ff;
+
+  --crm-success-bg: #203d2d;
+  --crm-success-text: #b1e6be;
+  --crm-warning-bg: #443719;
+  --crm-warning-text: #f6d889;
+  --crm-danger-bg: #432824;
+  --crm-danger-text: #ffb9b2;
+
+  --crm-shadow-floating: 0 8px 24px rgb(0 0 0 / 40%);
+
+  color-scheme: dark;
+}
+
+/* Content padding: 32 desktop, 24 tablet, 16 mobile. */
+@media (max-width: 1199px) {
+  :root {
+    --crm-content-padding: var(--crm-space-5);
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --crm-content-padding: var(--crm-space-4);
+  }
+}

@@ -17,7 +17,9 @@ This repository implements the documents in the specification repository. Read t
 
 ## Status
 
-Scaffold only. `src/App.tsx` is a placeholder; FE-00 delivers the route layout, role shells, token styles, form and table primitives, localization utilities and API client.
+**FE-00a complete** — design tokens, three role shells, routing for all P01–P21, and the money/date utilities. Every page is reachable behind real permission guards; page content is placeholder.
+
+**FE-00b next** — the `ui-ux.md` §9 component contracts (`StatusBadge`, `HoldTimer`, `MoneyField`, `DataTable`, `DecisionDialog`, …), the API client, contract fixtures, and the component state gallery.
 
 ## Requirements
 
@@ -30,11 +32,38 @@ npm install        # install from package-lock.json
 npm run dev        # dev server on http://localhost:5173
 npm run typecheck  # TypeScript, no emit
 npm run lint       # oxlint
+npm run test       # vitest, jsdom
 npm run build      # typecheck and production build
 npm run preview    # serve the production build
+npm run api:types  # regenerate src/api/schema.d.ts from the backend contract
 ```
 
-`npm run typecheck`, `npm run lint` and `npm run build` must pass before a pull request merges (INF-01).
+`typecheck`, `lint`, `test` and `build` must all pass before a pull request merges (INF-01).
+
+## Architecture
+
+```
+src/
+  styles/     tokens.css (the only place colours live), base.css
+  api/        schema.d.ts (generated — do not edit), types.ts (named aliases)
+  auth/       context.ts (hook), AuthProvider.tsx — capabilities and locations
+  location/   selected ACE/CSKA location and the cache scopeKey
+  theme/      light / dark / system preference
+  shells/     StaffShell, CustomerShell, CoachShell, navigation.ts
+  routes/     AppRoutes.tsx (P01-P21 table), guards.tsx
+  pages/      LoginPage, PlaceholderPage
+  dev/        synthetic preview users — dev builds only
+```
+
+Context objects and hooks live in `context.ts`, providers in `*Provider.tsx`. Splitting them keeps fast refresh working: a file exporting both a component and a hook loses it.
+
+### API types
+
+`src/api/schema.d.ts` is generated from `../crm.backend/api/openapi.yaml` and is **committed, not ignored** — the contract lives in a sibling repository, so CI cannot regenerate it without cross-repo access. Treat it as a vendored contract: regenerate with `npm run api:types`, never hand-edit.
+
+### Theme
+
+Three states must all work: system default, explicit light, explicit dark. Every token is defined on bare `:root` first, then overridden in both the `prefers-color-scheme: dark` block and `[data-theme="dark"]`. A colour defined only inside a media query is missing in one of the three states.
 
 ## Configuration
 

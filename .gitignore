@@ -28,5 +28,7 @@ dist-ssr
 .env.*
 !.env.example
 
-# Generated API client/types from the backend OpenAPI contract
-src/api/generated/
+# src/api/schema.d.ts is generated from ../crm.backend/api/openapi.yaml but is
+# deliberately COMMITTED, not ignored: the contract lives in a sibling
+# repository, so CI cannot regenerate it without cross-repo access. Treat it as
+# a vendored contract — regenerate with `npm run api:types`, never hand-edit.

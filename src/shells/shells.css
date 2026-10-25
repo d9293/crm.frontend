@@ -1,0 +1,304 @@
+/* Shell layouts for the staff, customer and coach navigation contexts. */
+
+.shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  background: var(--crm-bg);
+}
+
+/* --- staff: desktop left rail ------------------------------------------- */
+
+.shell--staff {
+  grid-template-columns: var(--crm-rail-width) 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'rail header'
+    'rail main';
+}
+
+.shell__rail {
+  grid-area: rail;
+  display: flex;
+  flex-direction: column;
+  background: var(--crm-surface);
+  border-right: 1px solid var(--crm-border);
+  overflow-y: auto;
+}
+
+.shell__wordmark {
+  display: block;
+  padding: var(--crm-space-4);
+  font-weight: var(--crm-weight-semibold);
+  color: var(--crm-text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--crm-border);
+}
+
+.shell__nav {
+  flex: 1;
+  padding: var(--crm-space-3) 0;
+}
+
+.shell__nav-group + .shell__nav-group {
+  margin-top: var(--crm-space-4);
+}
+
+.shell__nav-group-label {
+  padding: var(--crm-space-2) var(--crm-space-4);
+  font-size: var(--crm-font-size-meta);
+  line-height: var(--crm-line-height-meta);
+  font-weight: var(--crm-weight-semibold);
+  color: var(--crm-text-muted);
+}
+
+.shell__nav-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shell__nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--crm-space-2);
+  min-height: var(--crm-control-height);
+  padding: var(--crm-space-2) var(--crm-space-4);
+  color: var(--crm-text);
+  text-decoration: none;
+  font-size: var(--crm-font-size-label);
+  transition: background var(--crm-transition);
+}
+
+.shell__nav-link:hover {
+  background: var(--crm-surface-alt);
+}
+
+/* Selected state carries both a background and a left marker, so it does not
+ * depend on colour alone. `aria-current` marks it for assistive technology. */
+.shell__nav-link[aria-current='page'] {
+  background: var(--crm-surface-alt);
+  font-weight: var(--crm-weight-semibold);
+  box-shadow: inset 3px 0 0 var(--crm-primary);
+}
+
+.shell__nav-count {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 0 var(--crm-space-1);
+  border-radius: var(--crm-radius-pill);
+  background: var(--crm-warning-bg);
+  color: var(--crm-warning-text);
+  font-size: var(--crm-font-size-meta);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.shell__rail-footer {
+  padding: var(--crm-space-4);
+  border-top: 1px solid var(--crm-border);
+  font-size: var(--crm-font-size-label);
+}
+
+.shell__identity {
+  display: block;
+  font-weight: var(--crm-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+/* --- header -------------------------------------------------------------- */
+
+.shell__header {
+  grid-area: header;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--crm-space-3);
+  padding: var(--crm-space-3) var(--crm-content-padding);
+  background: var(--crm-surface);
+  border-bottom: 1px solid var(--crm-border);
+}
+
+.shell__header-spacer {
+  flex: 1;
+}
+
+.shell__main {
+  grid-area: main;
+  min-width: 0; /* lets wide children scroll locally instead of pushing the page */
+}
+
+/* --- controls ------------------------------------------------------------ */
+
+.shell__control {
+  min-height: var(--crm-control-height);
+  padding: 0 var(--crm-space-3);
+  background: var(--crm-surface);
+  color: var(--crm-text);
+  border: 1px solid var(--crm-control-border);
+  border-radius: var(--crm-radius-control);
+  font-size: var(--crm-font-size-label);
+  cursor: pointer;
+}
+
+.shell__control--primary {
+  background: var(--crm-primary);
+  color: var(--crm-on-primary);
+  border-color: var(--crm-primary);
+  font-weight: var(--crm-weight-medium);
+}
+
+.shell__control:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.shell__field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--crm-space-1);
+}
+
+.shell__field-label {
+  font-size: var(--crm-font-size-meta);
+  color: var(--crm-text-muted);
+}
+
+/* --- staff: compact ------------------------------------------------------
+ * Below 1200px the rail collapses to a horizontal scrolling nav above the
+ * content. The page itself must not scroll horizontally, so the overflow is
+ * confined to the nav strip.
+ */
+
+@media (max-width: 1199px) {
+  .shell--staff {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      'header'
+      'rail'
+      'main';
+  }
+
+  .shell__rail {
+    border-right: 0;
+    border-bottom: 1px solid var(--crm-border);
+  }
+
+  .shell__wordmark {
+    border-bottom: 0;
+    padding-bottom: var(--crm-space-2);
+  }
+
+  .shell__nav {
+    display: flex;
+    gap: var(--crm-space-4);
+    overflow-x: auto;
+    padding: 0 var(--crm-space-4) var(--crm-space-2);
+  }
+
+  .shell__nav-group + .shell__nav-group {
+    margin-top: 0;
+  }
+
+  .shell__nav-list {
+    display: flex;
+    gap: var(--crm-space-1);
+  }
+
+  .shell__nav-link {
+    white-space: nowrap;
+    border-radius: var(--crm-radius-control);
+  }
+
+  .shell__nav-link[aria-current='page'] {
+    box-shadow: inset 0 -3px 0 var(--crm-primary);
+  }
+
+  .shell__rail-footer {
+    display: none; /* identity and sign-out move into the header */
+  }
+}
+
+/* --- customer and coach -------------------------------------------------- */
+
+.shell--customer,
+.shell--coach {
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'header'
+    'main';
+}
+
+.shell__tabs {
+  display: flex;
+  gap: var(--crm-space-2);
+}
+
+.shell__tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--crm-control-height);
+  padding: 0 var(--crm-space-3);
+  border-radius: var(--crm-radius-control);
+  color: var(--crm-text);
+  text-decoration: none;
+  font-size: var(--crm-font-size-label);
+}
+
+.shell__tab[aria-current='page'] {
+  background: var(--crm-surface-alt);
+  font-weight: var(--crm-weight-semibold);
+  box-shadow: inset 0 -3px 0 var(--crm-primary);
+}
+
+/* Mobile bottom navigation for the customer shell: two labelled items, with
+ * safe-area padding so the final control is not under the home indicator. */
+.shell__bottom-nav {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .shell--customer .shell__tabs {
+    display: none;
+  }
+
+  .shell--customer .shell__bottom-nav {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 20;
+    display: flex;
+    background: var(--crm-surface);
+    border-top: 1px solid var(--crm-border);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .shell__bottom-nav .shell__tab {
+    flex: 1;
+    justify-content: center;
+    min-height: 56px;
+    border-radius: 0;
+    text-align: center;
+  }
+
+  /* Content clears the fixed bar plus the safe area. */
+  .shell--customer .shell__main {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--crm-space-4));
+  }
+}
+
+/* --- access (T1) --------------------------------------------------------- */
+
+.shell--access {
+  place-items: center;
+  padding: var(--crm-space-4);
+}
+
+.access-card {
+  width: 100%;
+  max-width: var(--crm-access-width);
+  background: var(--crm-surface);
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-radius-panel);
+  padding: var(--crm-space-6);
+}

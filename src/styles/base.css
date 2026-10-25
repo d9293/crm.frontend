@@ -1,0 +1,152 @@
+/*
+ * Base element styles and shared layout primitives.
+ * Colour, type and spacing come from tokens.css — no raw values here either.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--crm-bg);
+  color: var(--crm-text);
+  font-family: var(--crm-font-family);
+  font-size: var(--crm-font-size-body);
+  line-height: var(--crm-line-height-body);
+  font-weight: var(--crm-weight-regular);
+  /* The document must reflow without horizontal overflow. Calendars and wide
+   * tables scroll inside their own labelled container instead. */
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: var(--crm-weight-semibold);
+}
+
+h1 {
+  font-size: var(--crm-font-size-title);
+  line-height: var(--crm-line-height-title);
+}
+
+h2 {
+  font-size: var(--crm-font-size-section);
+  line-height: var(--crm-line-height-section);
+}
+
+p {
+  margin: 0;
+}
+
+/* Money, time and countdowns use tabular numerals so digits do not shift
+ * width as values change — a countdown that reflows every second is hard to
+ * read and draws the eye away from the task. */
+.crm-numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Visible keyboard focus everywhere. Never remove this without an equally
+ * visible replacement. */
+:focus-visible {
+  outline: 2px solid var(--crm-focus);
+  outline-offset: 2px;
+  border-radius: var(--crm-radius-control);
+}
+
+a {
+  color: var(--crm-primary);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* Respect reduced-motion. Essential state information is never conveyed by
+ * animation in the first place, so disabling transitions loses nothing. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- shared layout ------------------------------------------------------- */
+
+.crm-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link: first focusable element, visible only when focused. */
+.crm-skip-link {
+  position: absolute;
+  top: var(--crm-space-2);
+  left: var(--crm-space-2);
+  z-index: 100;
+  padding: var(--crm-space-2) var(--crm-space-4);
+  background: var(--crm-surface);
+  color: var(--crm-text);
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-radius-control);
+  transform: translateY(-200%);
+}
+
+.crm-skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+.crm-page {
+  padding: var(--crm-content-padding);
+  max-width: 1440px;
+}
+
+.crm-page__header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--crm-space-4);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--crm-space-5);
+}
+
+.crm-panel {
+  background: var(--crm-surface);
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-radius-panel);
+  padding: var(--crm-space-5);
+}
+
+.crm-muted {
+  color: var(--crm-text-muted);
+}
+
+.crm-meta {
+  font-size: var(--crm-font-size-meta);
+  line-height: var(--crm-line-height-meta);
+  color: var(--crm-text-muted);
+}

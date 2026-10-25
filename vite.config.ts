@@ -1,5 +1,8 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+// `defineConfig` from `vitest/config` rather than `vite`: it is the same
+// function widened to accept the `test` block below. Vite's own config type
+// has no `test` property, so importing from `vite` fails typecheck.
+import { defineConfig } from 'vitest/config'
 
 /**
  * Dev-server proxy target is provisional: the backend framework and its port
@@ -18,5 +21,14 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  test: {
+    // jsdom rather than a real browser: these tests assert what renders for
+    // which role. Real-browser verification of layout and responsive
+    // behaviour is the design review in ui-ux.md section 12.
+    environment: 'jsdom',
+    globals: false,
+    setupFiles: ['src/test/setup.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 })

@@ -1,15 +1,32 @@
 /**
- * Placeholder root component.
+ * Application root: provider composition and routing.
  *
- * FE-00 replaces this with the route layout and the staff, customer and coach
- * shells described in `development/frontend.md` and `development/ui-ux.md`
- * of the specification repository. Nothing here is a design decision.
+ * Provider order matters. `LocationProvider` resolves the selected location
+ * against the locations the server permits, so it must sit inside
+ * `AuthProvider`.
+ *
+ * `initialStatus` is `anonymous` because there is no session endpoint yet.
+ * FE-01 replaces this with a `GET /session` call and keeps `loading` until it
+ * resolves, so a refresh restores a valid session instead of bouncing the
+ * user to sign-in.
  */
+
+import { BrowserRouter } from 'react-router'
+import { AuthProvider } from './auth/AuthProvider'
+import { LocationProvider } from './location/LocationProvider'
+import { ThemeProvider } from './theme/ThemeProvider'
+import AppRoutes from './routes/AppRoutes'
+
 export default function App() {
   return (
-    <main>
-      <h1>ACE / CSKA CRM</h1>
-      <p>Каркас приложения. Интерфейс реализуется в задаче FE-00.</p>
-    </main>
+    <ThemeProvider>
+      <AuthProvider initialStatus="anonymous">
+        <LocationProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </LocationProvider>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
