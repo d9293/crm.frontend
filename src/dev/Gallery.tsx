@@ -12,11 +12,10 @@
 
 import { useState } from 'react'
 import {
-  BookingBadge,
   CancellationBadge,
   MembershipBadge,
   PaymentBadge,
-  RequestBadge,
+  ReservationBadge,
 } from '../components/StatusBadge'
 import { HoldTimer } from '../components/HoldTimer'
 import { MoneyField } from '../components/MoneyField'
@@ -104,12 +103,11 @@ export default function Gallery() {
         title="Статусы"
         note="Отдельные словари: состояние заявки, брони, отмены, оплаты и абонемента не смешиваются. Оплата никогда не является состоянием брони."
       >
-        <RequestBadge state="pending_confirmation" />
-        <RequestBadge state="confirmed" />
-        <RequestBadge state="rejected" />
-        <RequestBadge state="expired" />
-        <BookingBadge state="confirmed" />
-        <BookingBadge state="canceled" />
+        <ReservationBadge state="pending_confirmation" />
+        <ReservationBadge state="confirmed" />
+        <ReservationBadge state="rejected" />
+        <ReservationBadge state="expired" />
+        <ReservationBadge state="canceled" />
         <CancellationBadge state="pending" />
         <CancellationBadge state="approved" />
         <PaymentBadge state="unpaid" />
@@ -126,11 +124,11 @@ export default function Gallery() {
         note="Подтверждено и не оплачено, подтверждено и запрошена отмена — различимые комбинации, а не один неоднозначный статус."
       >
         <div style={{ display: 'flex', gap: 'var(--crm-space-2)' }}>
-          <BookingBadge state="confirmed" />
+          <ReservationBadge state="confirmed" />
           <PaymentBadge state="unpaid" />
         </div>
         <div style={{ display: 'flex', gap: 'var(--crm-space-2)' }}>
-          <BookingBadge state="confirmed" />
+          <ReservationBadge state="confirmed" />
           <CancellationBadge state="pending" />
         </div>
       </Section>

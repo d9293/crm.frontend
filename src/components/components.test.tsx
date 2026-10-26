@@ -9,12 +9,64 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { HoldTimer } from './HoldTimer'
+import { CancellationBadge, PaymentBadge, ReservationBadge } from './StatusBadge'
 import { MoneyField } from './MoneyField'
+import type { ReservationState } from '../api/types'
 import { parseTengeToMinorUnits } from '../lib/money'
 import { DecisionDialog } from './DecisionDialog'
 import { ResourceSlot } from './ResourceSlot'
 import { DataTable } from './DataTable'
 import { formatInterval, formatLocalDate, formatMoney } from '../lib/format'
+
+describe('StatusBadge', () => {
+  // Every state the contract defines must have a label. `satisfies` already
+  // enforces this at compile time; this asserts it renders rather than
+  // throwing on an unmapped key.
+  const allStates: ReservationState[] = [
+    'pending_confirmation',
+    'confirmed',
+    'rejected',
+    'expired',
+    'canceled',
+  ]
+
+  it('renders a text label for every reservation state in the contract', () => {
+    for (const state of allStates) {
+      const { unmount } = render(<ReservationBadge state={state} />)
+      // Text, not colour: UX requires status to be readable without hue.
+      expect(screen.getByText(/\S/).textContent?.trim().length).toBeGreaterThan(0)
+      unmount()
+    }
+  })
+
+  it('keeps payment separate from reservation state', () => {
+    // A confirmed, unpaid booking is two badges. Payment is never a
+    // reservation state (BR-06), and UX-04 needs the combination legible.
+    render(
+      <>
+        <ReservationBadge state="confirmed" />
+        <PaymentBadge state="unpaid" />
+      </>,
+    )
+
+    expect(screen.getByText('Бронь подтверждена')).toBeTruthy()
+    expect(screen.getByText('Не оплачено')).toBeTruthy()
+  })
+
+  it('shows a pending cancellation alongside a still-confirmed booking', () => {
+    // While a cancellation is pending the court stays reserved, so both
+    // badges appear. Collapsing them into one ambiguous status is forbidden.
+    render(
+      <>
+        <ReservationBadge state="confirmed" />
+        <CancellationBadge state="pending" />
+      </>,
+    )
+
+    expect(screen.getByText('Бронь подтверждена')).toBeTruthy()
+    expect(screen.getByText('Запрошена отмена')).toBeTruthy()
+  })
+})
 
 describe('parseTengeToMinorUnits', () => {
   it('converts whole and fractional tenge to integer minor units', () => {

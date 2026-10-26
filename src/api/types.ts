@@ -24,6 +24,22 @@ export type AccessState = Schemas['AccessState']
 export type ApiError = Schemas['Error']
 export type Closure = Schemas['Closure']
 
+// S3 — availability and reservations
+export type Reservation = Schemas['Reservation']
+export type ReservationSummary = Schemas['ReservationSummary']
+export type ReservationState = Schemas['ReservationState']
+export type ResourceAllocation = Schemas['ResourceAllocation']
+export type AvailabilityResponse = Schemas['AvailabilityResponse']
+export type AvailabilitySlot = Schemas['AvailabilitySlot']
+export type DurationOption = Schemas['DurationOption']
+export type PriceSnapshot = Schemas['PriceSnapshot']
+export type PriceLine = Schemas['PriceLine']
+export type FinancialSummary = Schemas['FinancialSummary']
+export type CancellationState = Schemas['CancellationState']
+export type MinorUnits = Schemas['MinorUnits']
+export type SlotConflictError = Schemas['SlotConflictError']
+export type ReservationConflictError = Schemas['ReservationConflictError']
+
 /**
  * Capability keys referenced by the navigation and route guards.
  *

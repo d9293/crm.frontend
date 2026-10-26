@@ -356,6 +356,225 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Free time for a location and date
+         * @description Returns bookable intervals for one calendar date at one location, plus
+         *     the permitted durations and the current server time.
+         *
+         *     **Advisory only.** `README.md` section 6 is explicit that availability
+         *     is advisory and mutations recheck atomically. A slot returned here may
+         *     be taken a moment later; the request endpoint is the only authority.
+         *
+         *     **No other customer is disclosed.** An occupied interval is reported as
+         *     unavailable with no customer identity, booking reference or group name.
+         *     Section 7 requires that customers never see another customer's identity
+         *     in availability responses, and a staff caller receives only the private
+         *     fields their capabilities permit.
+         *
+         *     **Expired holds do not block.** A pending hold whose expiry has passed
+         *     is excluded here regardless of whether the sweeper has run, which is
+         *     what makes AC-02 pass with the cleanup worker stopped.
+         *
+         *     `server_time` is returned so a client can anchor a countdown without
+         *     trusting the device clock.
+         */
+        get: operations["getAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List reservations within the caller's scope
+         * @description Scope is derived from the session, never from a query parameter. A
+         *     customer with `reservations.read_own` receives only their own records; a
+         *     staff caller with `reservations.read` receives records for permitted
+         *     locations. A customer cannot widen the scope by supplying another
+         *     customer's id — AC-11.
+         *
+         *     Serves three screens: the customer's own list (P08), the staff schedule
+         *     (P09), and the approval queue (P10) via
+         *     `state=pending_confirmation`. The queue is ordered by
+         *     `hold_expires_at` ascending by default, so the most urgent request is
+         *     first, per the journey in `ui-ux.md` section 6.
+         */
+        get: operations["listReservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reservations/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Customer requests a court, creating a five-minute hold
+         * @description Confirmed behaviour (BR-04): accepting the request immediately holds the
+         *     requested court and time for five minutes pending an employee decision.
+         *
+         *     **The server sets everything that matters.** It resolves the customer
+         *     from the session and computes `hold_expires_at` as its own
+         *     request-acceptance time plus 300 seconds. A caller cannot supply the
+         *     customer, requester, state or expiry; those fields are absent from the
+         *     request body by design, not merely ignored.
+         *
+         *     **Allocation is atomic and all-or-nothing.** The server rejects any
+         *     request overlapping a confirmed allocation or an unexpired hold. A
+         *     failed multi-resource request leaves no partial allocation (AC-01). On
+         *     conflict the response carries the conflicting intervals so the client
+         *     can refresh availability and preserve the user's other selections
+         *     rather than discarding the whole form.
+         *
+         *     **Idempotency is required.** `Idempotency-Key` is mandatory here: a
+         *     double-click or a retried request must produce one hold, not two
+         *     (AC-01). A retry returns the original reservation unchanged and **does
+         *     not extend the hold** — the five minutes run from the first acceptance,
+         *     so a client cannot buy time by retrying.
+         *
+         *     **No payment is involved.** BR-06 keeps reservation state and financial
+         *     state separate; nothing here charges or requires money.
+         *
+         *     Withdrawal of a pending request, active-hold limits and advance-booking
+         *     limits are **not** part of this operation. GATE D-06 — they must not be
+         *     inferred as implicit features.
+         */
+        post: operations["createReservationRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reservations/{reservation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reservation_id: components["parameters"]["ReservationId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Reservation detail
+         * @description Private fields are returned only to the extent the caller's
+         *     capabilities permit; the server omits unauthorized fields rather than
+         *     relying on the client to hide them.
+         *
+         *     A customer requesting another customer's reservation receives a denial.
+         *     Per section 8 the choice between 403 and 404 must be consistent for
+         *     this operation so the status code cannot be used to probe for
+         *     existence; **404** is used here, since the existence of someone else's
+         *     booking is itself private.
+         *
+         *     An expired request remains readable as a historical record. It must
+         *     never be presented as confirmable — `state` is `expired` and
+         *     `can_confirm` is false.
+         */
+        get: operations["getReservation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reservations/{reservation_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reservation_id: components["parameters"]["ReservationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee confirms a pending request
+         * @description Confirmed behaviour (BR-05, BR-06): an employee decision within the
+         *     hold confirms the reservation, and confirmation requires no payment.
+         *
+         *     **Timing is strict.** Confirmation succeeds only while server time is
+         *     *strictly before* `hold_expires_at`. At exactly the expiry instant the
+         *     hold is already inactive, even if its stored status has not yet been
+         *     swept to `expired` (`README.md` section 6). The server re-reads
+         *     database time *after* acquiring locks, so a slow request cannot
+         *     confirm a hold that expired while it waited.
+         *
+         *     **One outcome only.** Confirm, reject and expiry serialize; exactly one
+         *     wins and the others observe the final state (AC-03). A second decision
+         *     returns the committed outcome rather than overwriting it.
+         *
+         *     `If-Match` is required so a stale client — one whose view predates
+         *     another employee's decision — fails with a conflict and refreshed
+         *     state instead of acting on what it last saw.
+         */
+        post: operations["confirmReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reservations/{reservation_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reservation_id: components["parameters"]["ReservationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee rejects a pending request
+         * @description Records the decision with actor, reason and timestamp, and releases all
+         *     allocations in the same transaction, so the slot becomes available
+         *     immediately rather than at the next sweep.
+         *
+         *     A repeated rejection is harmless: the committed decision is returned
+         *     and allocations are not released twice.
+         *
+         *     The reason is **optional**. `ui-ux.md` section 6 warns against
+         *     requiring one because a designer assumed it was needed; making it
+         *     mandatory is a business decision not yet taken. Any reason shown to a
+         *     customer must be safe to disclose.
+         */
+        post: operations["rejectReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -392,6 +611,15 @@ export interface components {
          * @example 07:00
          */
         LocalTime: string;
+        /**
+         * Format: int64
+         * @description Monetary amount in integer minor units of `KZT` — 1 500 000 is 15 000
+         *     tenge. `README.md` section 6 forbids binary floating point for money,
+         *     so amounts are integers on the wire and the client formats for
+         *     display. Negative values denote refunds and reversals.
+         * @example 1500000
+         */
+        MinorUnits: number;
         /** @description Increments on every committed change. Mirrors the `ETag`. */
         Version: number;
         /**
@@ -660,6 +888,198 @@ export interface components {
             ends_at: components["schemas"]["Instant"];
             reason?: components["schemas"]["Reason"];
         };
+        /**
+         * @description One candidate interval on one resource. Half-open `[starts_at,
+         *     ends_at)`, so 10:00–11:00 and 11:00–12:00 do not conflict.
+         */
+        AvailabilitySlot: {
+            resource_id: components["schemas"]["Id"];
+            starts_at: components["schemas"]["Instant"];
+            ends_at: components["schemas"]["Instant"] & unknown;
+            is_available: boolean;
+            /**
+             * @description Why the interval cannot be booked. Deliberately coarse: a customer
+             *     may learn that a slot is taken, never by whom. `held` and `booked`
+             *     are not distinguished for customer callers, because the difference
+             *     would reveal that someone is mid-request.
+             */
+            unavailable_reason?: ("occupied" | "closed" | "outside_hours") | null;
+        };
+        DurationOption: {
+            /** @description 90 is supported (BR-12). */
+            minutes: number;
+            /**
+             * @description False when the duration exists but this caller may not select it.
+             *     GATE D-06 for customer duration limits.
+             */
+            is_allowed: boolean;
+        };
+        AvailabilityResponse: {
+            location_id: components["schemas"]["Id"];
+            date: components["schemas"]["LocalDate"];
+            /**
+             * @description The location's business timezone, for rendering local times.
+             * @example Asia/Almaty
+             */
+            timezone: string;
+            server_time: components["schemas"]["Instant"] & unknown;
+            /** @description Resources covered by this response, in display order. */
+            resources: components["schemas"]["Resource"][];
+            slots: components["schemas"]["AvailabilitySlot"][];
+            /** @description Permitted durations, rather than leaving the client to invent them. */
+            durations: components["schemas"]["DurationOption"][];
+        };
+        /**
+         * @description `pending_confirmation → confirmed | rejected | expired`, and
+         *     `confirmed → canceled` only through an authorized staff action or an
+         *     approved cancellation request (S4).
+         *
+         *     Paid and unpaid are **never** reservation states — BR-06 keeps
+         *     financial status separate. Attendance and completion are likewise
+         *     separate from approval state.
+         * @enum {string}
+         */
+        ReservationState: "pending_confirmation" | "confirmed" | "rejected" | "expired" | "canceled";
+        /**
+         * @description One occupied interval on one resource. A reservation may hold several;
+         *     either all are allocated or none are, so a partial booking cannot
+         *     exist.
+         */
+        ResourceAllocation: {
+            resource_id: components["schemas"]["Id"];
+            resource_name?: string;
+            starts_at: components["schemas"]["Instant"];
+            ends_at: components["schemas"]["Instant"] & unknown;
+        };
+        /**
+         * @description An immutable snapshot taken when the reservation was created. Later
+         *     tariff edits never change it, so history keeps the price actually
+         *     quoted (`README.md` section 9).
+         */
+        PriceLine: {
+            /** @description Description as it was at the time, not a live catalog lookup. */
+            label: string;
+            quantity: number;
+            unit_price_minor_units: components["schemas"]["MinorUnits"];
+            amount_minor_units: components["schemas"]["MinorUnits"];
+            service_id?: components["schemas"]["Id"];
+            tariff_version_id?: components["schemas"]["Id"] & unknown;
+        };
+        PriceSnapshot: {
+            /** @enum {string} */
+            currency: "KZT";
+            total_minor_units: components["schemas"]["MinorUnits"];
+            lines: components["schemas"]["PriceLine"][];
+        };
+        /**
+         * @description Independent of reservation state. A confirmed reservation may be
+         *     entirely unpaid, and that is not an error (AC-04). Returned only to
+         *     callers with finance visibility; omitted otherwise rather than zeroed,
+         *     since a zero would read as "nothing owed".
+         */
+        FinancialSummary: {
+            charged_minor_units: components["schemas"]["MinorUnits"];
+            received_minor_units: components["schemas"]["MinorUnits"];
+            outstanding_minor_units: components["schemas"]["MinorUnits"];
+        };
+        ReservationSummary: {
+            id: components["schemas"]["Id"];
+            state: components["schemas"]["ReservationState"];
+            location_id: components["schemas"]["Id"];
+            starts_at: components["schemas"]["Instant"];
+            ends_at: components["schemas"]["Instant"] & unknown;
+            allocations: components["schemas"]["ResourceAllocation"][];
+            /** @description Present only while `state` is `pending_confirmation`. */
+            hold_expires_at?: components["schemas"]["Instant"] | null;
+            /**
+             * @description Authorized staff only. Never present in a customer-scoped
+             *     response about someone else's reservation.
+             */
+            customer_display_name?: string | null;
+            version: components["schemas"]["Version"];
+        };
+        Reservation: components["schemas"]["ReservationSummary"] & {
+            customer_id?: components["schemas"]["Id"];
+            requested_by_user_id?: components["schemas"]["Id"] & unknown;
+            requested_at: components["schemas"]["Instant"];
+            decided_at?: components["schemas"]["Instant"] | null;
+            /** @description Authorized callers only. */
+            decided_by_user_id?: components["schemas"]["Id"] | null;
+            /**
+             * @description Only when safe to disclose to this caller. A reason written for
+             *     internal use is not automatically customer-visible.
+             */
+            decision_reason?: string | null;
+            price_snapshot?: components["schemas"]["PriceSnapshot"] | null;
+            /** @description Omitted entirely without finance visibility. */
+            financial_summary?: components["schemas"]["FinancialSummary"] | null;
+            server_time: components["schemas"]["Instant"] & unknown;
+            /**
+             * @description Server's own judgement, combining state, expiry against
+             *     database time, and the caller's capabilities. False for an
+             *     expired request, so a client cannot present it as confirmable
+             *     even if it misreads the timestamps.
+             */
+            can_confirm: boolean;
+            can_reject: boolean;
+            /**
+             * @description Set from S4 when a cancellation request exists. A pending
+             *     cancellation leaves the reservation `confirmed` and occupying
+             *     its resources — the two states are shown together, never
+             *     collapsed into one ambiguous status (UX-04).
+             */
+            cancellation_request_state?: components["schemas"]["CancellationState"] | null;
+        };
+        /**
+         * @description Separate record from the reservation (S4, BE-08). Declared here so S3
+         *     clients can render the combined confirmed-plus-pending-cancellation
+         *     state without a contract change.
+         * @enum {string}
+         */
+        CancellationState: "pending" | "approved" | "rejected";
+        /**
+         * @description Note what is absent and cannot be supplied: customer, requester, state,
+         *     `hold_expires_at` and any price. The server derives identity from the
+         *     session, computes expiry from its own clock and resolves price from the
+         *     referenced tariff version. Accepting any of those from a client would
+         *     let a caller book for someone else, extend its own hold or choose its
+         *     own price.
+         */
+        ReservationRequestWrite: {
+            location_id: components["schemas"]["Id"];
+            /**
+             * @description All requested resources are occupied together, all-or-nothing.
+             *     Whether multiple selected courts could instead mean "any one of
+             *     these" is D-08 and is not supported here.
+             */
+            resource_ids: components["schemas"]["Id"][];
+            starts_at: components["schemas"]["Instant"];
+            ends_at: components["schemas"]["Instant"] & unknown;
+            /**
+             * @description The priced offer the customer reviewed. The server recalculates and
+             *     verifies rather than trusting a submitted amount. GATE D-10 for
+             *     pricing units and duration-based rules.
+             */
+            offer?: {
+                service_id: components["schemas"]["Id"];
+                tariff_version_id?: components["schemas"]["Id"];
+            } | null;
+            comment?: string;
+        };
+        SlotConflictError: components["schemas"]["Error"] & {
+            server_time?: components["schemas"]["Instant"];
+            /**
+             * @description The exact conflicting intervals, so the UI can refresh
+             *     availability and preserve the user's other valid selections
+             *     instead of discarding the form. No customer identity appears
+             *     here.
+             */
+            conflicts?: components["schemas"]["ResourceAllocation"][];
+        };
+        ReservationConflictError: components["schemas"]["Error"] & {
+            server_time?: components["schemas"]["Instant"] & unknown;
+            current_state?: components["schemas"]["ReservationState"];
+        };
     };
     responses: {
         /** @description No valid session. */
@@ -756,6 +1176,7 @@ export interface components {
         EmployeeId: components["schemas"]["Id"];
         LocationId: components["schemas"]["Id"];
         ResourceId: components["schemas"]["Id"];
+        ReservationId: components["schemas"]["Id"];
     };
     requestBodies: never;
     headers: {
@@ -1520,6 +1941,339 @@ export interface operations {
                             ends_at?: components["schemas"]["Instant"];
                         }[];
                     };
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getAvailability: {
+        parameters: {
+            query: {
+                /** @description Checked server-side against the caller's permitted locations. */
+                location_id: components["schemas"]["Id"];
+                /**
+                 * @description Calendar date in the location's business timezone. Court hours run
+                 *     07:00–00:00, and the 00:00 end belongs to the following date.
+                 */
+                date: components["schemas"]["LocalDate"];
+                /** @description Restrict to these resources. All permitted resources when omitted. */
+                resource_ids?: components["schemas"]["Id"][];
+                /**
+                 * @description Show only intervals where this duration fits. 90 is supported
+                 *     (BR-12). GATE D-06 for the permitted list and any customer limit.
+                 */
+                duration_minutes?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Availability for the requested date. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityResponse"];
+                };
+            };
+            401: components["responses"]["NotAuthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    listReservations: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                location_id?: components["schemas"]["Id"];
+                /** @description Repeatable. Several states may be requested at once. */
+                state?: components["schemas"]["ReservationState"][];
+                /** @description Inclusive lower bound on `starts_at`. */
+                from?: components["schemas"]["Instant"];
+                /** @description Exclusive upper bound on `starts_at`. */
+                to?: components["schemas"]["Instant"];
+                order?: "hold_expiry_asc" | "starts_at_asc" | "starts_at_desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated reservations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageEnvelope"] & {
+                        items: components["schemas"]["ReservationSummary"][];
+                        server_time: components["schemas"]["Instant"] & unknown;
+                    };
+                };
+            };
+            401: components["responses"]["NotAuthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createReservationRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description CSRF token for state-changing requests, paired with the session
+                 *     cookie. Required on every POST, PATCH and DELETE.
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /**
+                 * @description Client-generated key for duplicate-prone commands. The server binds it
+                 *     to actor, operation and request digest, and a retry returns the
+                 *     original committed result. Reusing a key with different input is a
+                 *     conflict.
+                 *
+                 *     Defined here for reuse; applies from S3 to reservation requests,
+                 *     financial commands, membership activation and attendance, per
+                 *     `development/README.md` section 8. No S1 operation needs it.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationRequestWrite"];
+            };
+        };
+        responses: {
+            /**
+             * @description Idempotent replay. The original reservation, with its original
+             *     `hold_expires_at` — the hold is never extended by a retry.
+             */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reservation"];
+                };
+            };
+            /**
+             * @description Hold created, awaiting an employee decision. `server_time` and
+             *     `hold_expires_at` together let the client show an accurate
+             *     countdown; the countdown is informational, and only the server
+             *     decides whether the hold is still live.
+             */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reservation"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["NotAuthenticated"];
+            /**
+             * @description The caller lacks `reservations.request`, or is not linked to the
+             *     customer identity the request would act for.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /**
+             * @description `SLOT_UNAVAILABLE` — the interval overlaps a confirmed allocation
+             *     or an unexpired hold. Nothing was allocated.
+             *
+             *     `IDEMPOTENCY_KEY_REUSED` — the key was already used with a
+             *     different request body. Section 8 makes this a conflict rather
+             *     than a silent replay of unrelated input.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotConflictError"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    getReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reservation_id: components["parameters"]["ReservationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reservation. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reservation"];
+                };
+            };
+            401: components["responses"]["NotAuthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    confirmReservation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description CSRF token for state-changing requests, paired with the session
+                 *     cookie. Required on every POST, PATCH and DELETE.
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /**
+                 * @description `ETag` from the last read of this record. A stale value fails with
+                 *     409 `VERSION_CONFLICT` and the response carries `current_version`, so
+                 *     the client can show a conflict rather than overwrite another user's
+                 *     change.
+                 * @example "7"
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                reservation_id: components["parameters"]["ReservationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /**
+             * @description Confirmed. The reservation is reserved regardless of payment; any
+             *     `financial_summary` is independent and may show an unpaid balance
+             *     (AC-04).
+             */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reservation"];
+                };
+            };
+            401: components["responses"]["NotAuthenticated"];
+            /**
+             * @description The caller lacks `reservations.confirm`, or the reservation is at a
+             *     location outside their assignment.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /**
+             * @description `HOLD_EXPIRED` — server time has reached or passed
+             *     `hold_expires_at`. An expired request can never be confirmed; the
+             *     customer must submit a new one after rechecking availability.
+             *
+             *     `INVALID_TRANSITION` — the reservation is no longer pending, for
+             *     example another employee already decided.
+             *
+             *     `VERSION_CONFLICT` — stale `If-Match`.
+             *
+             *     Each carries `server_time` and the current state so the client can
+             *     show an understandable result rather than an opaque failure.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationConflictError"];
+                };
+            };
+        };
+    };
+    rejectReservation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description CSRF token for state-changing requests, paired with the session
+                 *     cookie. Required on every POST, PATCH and DELETE.
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /**
+                 * @description `ETag` from the last read of this record. A stale value fails with
+                 *     409 `VERSION_CONFLICT` and the response carries `current_version`, so
+                 *     the client can show a conflict rather than overwrite another user's
+                 *     change.
+                 * @example "7"
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                reservation_id: components["parameters"]["ReservationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: components["schemas"]["Reason"];
+                };
+            };
+        };
+        responses: {
+            /** @description Rejected and allocations released. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reservation"];
+                };
+            };
+            401: components["responses"]["NotAuthenticated"];
+            /** @description The caller lacks `reservations.reject` for this location. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /**
+             * @description `HOLD_EXPIRED`, `INVALID_TRANSITION` or `VERSION_CONFLICT`, as for
+             *     confirmation.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationConflictError"];
                 };
             };
             422: components["responses"]["ValidationFailed"];
