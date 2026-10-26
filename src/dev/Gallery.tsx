@@ -27,7 +27,6 @@ import { ThemeSelect } from '../shells/HeaderControls'
 import { formatInterval, formatMoney, formatMoneySigned } from '../lib/format'
 import {
   fixtureHold,
-  fixtureValidationError,
   fixtureVersionConflictError,
 } from '../api/fixtures'
 
@@ -204,11 +203,14 @@ export default function Gallery() {
           />
         </div>
         <div style={{ minWidth: 220 }}>
+          {/* A money-shaped error. The fixture's field_errors are keyed by
+              employee fields, so reusing one here would show «Укажите имя
+              сотрудника» under a currency input. */}
           <MoneyField
             label="Сумма с ошибкой"
             value={null}
             onChange={() => {}}
-            error={fixtureValidationError.field_errors?.full_name?.[0]}
+            error="Укажите сумму оплаты."
           />
         </div>
       </Section>

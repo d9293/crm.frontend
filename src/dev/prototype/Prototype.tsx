@@ -320,13 +320,10 @@ function PrototypeRun({
         )}
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gap: 'var(--crm-space-6)',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))',
-        }}
-      >
+      {/* `.journey` sets min-width: 0 on its children. Without it the slot
+          list refuses to shrink and pushes the page wider than the viewport
+          on a phone. */}
+      <div className="journey">
         {/* --- customer ------------------------------------------------ */}
         <section>
           <h2 style={{ marginBottom: 'var(--crm-space-4)' }}>Клиент</h2>

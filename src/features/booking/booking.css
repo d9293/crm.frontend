@@ -8,6 +8,42 @@
   align-items: start;
 }
 
+/*
+ * Grid children default to `min-width: auto`, which refuses to shrink below
+ * the intrinsic width of their content. Defensive: the slot list is the
+ * widest thing on the page, and this is the standard guard against a grid
+ * track growing past the viewport. No overflow was observed without it.
+ */
+.booking > * {
+  min-width: 0;
+}
+
+/*
+ * Side-by-side customer and employee columns in the journey prototype.
+ * One column by default, two from 900px.
+ *
+ * An explicit breakpoint rather than
+ * `repeat(auto-fit, minmax(min(100%, 420px), 1fr))`. Both were measured at
+ * 360, 390 and 430px and neither overflows — this is a readability choice,
+ * not a bug fix. The breakpoint states the intent directly and sits beside
+ * the other media queries in this file.
+ */
+.journey {
+  display: grid;
+  gap: var(--crm-space-6);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+  .journey {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.journey > * {
+  min-width: 0;
+}
+
 /* One column below the medium breakpoint, with the summary last and its
  * primary action reachable without horizontal scrolling. */
 @media (max-width: 1023px) {

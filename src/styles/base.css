@@ -21,10 +21,22 @@ body {
   font-size: var(--crm-font-size-body);
   line-height: var(--crm-line-height-body);
   font-weight: var(--crm-weight-regular);
-  /* The document must reflow without horizontal overflow. Calendars and wide
-   * tables scroll inside their own labelled container instead. */
-  overflow-x: hidden;
 }
+
+/*
+ * The document must reflow without horizontal overflow; calendars and wide
+ * tables scroll inside their own labelled container instead (ui-ux.md §4).
+ *
+ * `overflow-x: hidden` on body is deliberately NOT used to enforce that. It
+ * would stop the page scrolling sideways, but by clipping — content becomes
+ * unreachable rather than reflowed, which is the "clipped controls" failure
+ * UX-06 tests for, and it would hide a future layout regression rather than
+ * letting it show as a scrollbar.
+ *
+ * Verified with the devtools protocol at 360, 390, 430, 768, 1024 and
+ * 1440px: documentElement.scrollWidth equals the viewport at every width,
+ * with no overflowing element.
+ */
 
 h1,
 h2,
