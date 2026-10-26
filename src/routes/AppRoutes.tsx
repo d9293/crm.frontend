@@ -21,6 +21,7 @@ import CoachShell from '../shells/CoachShell'
 import LoginPage from '../pages/LoginPage'
 import PlaceholderPage from '../pages/PlaceholderPage'
 import Gallery from '../dev/Gallery'
+import Prototype from '../dev/prototype/Prototype'
 import { NotFound, RequireAuth, RequireCapability } from './guards'
 
 interface PageSpec {
@@ -423,6 +424,14 @@ export default function AppRoutes() {
         renders only synthetic data and must be reviewable without a session.
       */}
       {import.meta.env.DEV && <Route path="/dev/gallery" element={<Gallery />} />}
+
+      {/*
+        P07–P10 journey prototype, the S3 design deliverable. Deliberately NOT
+        mounted at the real /customer and /staff routes: those keep their
+        placeholders until FE-07 to FE-10 wire them to the real API, so
+        simulated behaviour can never be mistaken for working behaviour.
+      */}
+      {import.meta.env.DEV && <Route path="/dev/prototype" element={<Prototype />} />}
 
       <Route path="*" element={<NotFound />} />
     </Routes>

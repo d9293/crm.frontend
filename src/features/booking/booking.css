@@ -1,0 +1,173 @@
+/* Booking journey layout. Values from tokens.css. */
+
+.booking {
+  display: grid;
+  gap: var(--crm-space-5);
+  /* T6: selection body plus a 320px summary rail. */
+  grid-template-columns: minmax(0, 1fr) var(--crm-summary-width);
+  align-items: start;
+}
+
+/* One column below the medium breakpoint, with the summary last and its
+ * primary action reachable without horizontal scrolling. */
+@media (max-width: 1023px) {
+  .booking {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.booking__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--crm-space-4);
+  align-items: flex-end;
+  margin-bottom: var(--crm-space-4);
+}
+
+.booking__court {
+  margin-bottom: var(--crm-space-5);
+}
+
+.booking__court-name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--crm-space-2);
+  margin-bottom: var(--crm-space-2);
+  font-size: var(--crm-font-size-label);
+  font-weight: var(--crm-weight-semibold);
+}
+
+/* Slots wrap rather than scroll: a customer picking a time should not have to
+ * discover content hidden sideways. */
+.booking__slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--crm-space-2);
+}
+
+.booking__summary {
+  position: sticky;
+  top: var(--crm-space-4);
+  display: grid;
+  gap: var(--crm-space-3);
+}
+
+@media (max-width: 1023px) {
+  .booking__summary {
+    position: static;
+  }
+}
+
+.booking__summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--crm-space-3);
+  font-size: var(--crm-font-size-label);
+}
+
+.booking__summary-total {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--crm-space-3);
+  padding-top: var(--crm-space-3);
+  border-top: 1px solid var(--crm-border);
+  font-weight: var(--crm-weight-semibold);
+}
+
+.booking__actions {
+  display: grid;
+  gap: var(--crm-space-2);
+}
+
+/* --- status card --------------------------------------------------------- */
+
+.status-card {
+  display: grid;
+  gap: var(--crm-space-4);
+  max-width: 560px;
+}
+
+.status-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--crm-space-2);
+}
+
+.status-card__facts {
+  display: grid;
+  gap: var(--crm-space-2);
+  margin: 0;
+}
+
+.status-card__fact {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--crm-space-3);
+  font-size: var(--crm-font-size-label);
+}
+
+.status-card__fact dt {
+  color: var(--crm-text-muted);
+}
+
+.status-card__fact dd {
+  margin: 0;
+  font-weight: var(--crm-weight-medium);
+}
+
+/* --- approval queue (T4) ------------------------------------------------- */
+
+.queue {
+  display: grid;
+  /* List at roughly 40%, detail at 60%. */
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--crm-space-4);
+  align-items: start;
+}
+
+@media (max-width: 1023px) {
+  .queue {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.queue__list {
+  display: grid;
+  gap: var(--crm-space-2);
+}
+
+.queue__row {
+  display: grid;
+  gap: var(--crm-space-1);
+  width: 100%;
+  padding: var(--crm-space-3);
+  text-align: left;
+  background: var(--crm-surface);
+  color: var(--crm-text);
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-radius-control);
+  cursor: pointer;
+}
+
+.queue__row[aria-current='true'] {
+  border-color: var(--crm-primary);
+  box-shadow: inset 3px 0 0 var(--crm-primary);
+}
+
+.queue__row-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--crm-space-2);
+}
+
+.queue__row-when {
+  font-size: var(--crm-font-size-label);
+  font-weight: var(--crm-weight-medium);
+}
+
+.queue__empty {
+  padding: var(--crm-space-6);
+  text-align: center;
+}

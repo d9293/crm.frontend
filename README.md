@@ -24,7 +24,16 @@ This repository implements the documents in the specification repository. Read t
 | FE-00a | Design tokens, staff/customer/coach shells, P01–P21 routing behind real guards, money and `Asia/Almaty` date utilities |
 | FE-00b | API client, error taxonomy, contract fixtures, eight §9 components, component state gallery |
 
-Components live at **`/dev/gallery`** in a dev build — all documented variants on one page, with the theme switcher, for the §12 design review.
+Two review surfaces exist in a dev build:
+
+| Route | What it is |
+|---|---|
+| `/dev/gallery` | Every §9 component with its documented variants, plus the theme switcher — the §12 component-state deliverable |
+| `/dev/prototype` | **P07–P10 journey prototype**: customer and employee side by side, driven by an in-memory simulation — the §12 S3 design deliverable |
+
+The prototype is deliberately **not** mounted at the real `/customer` and `/staff` routes. Those keep their placeholders until FE-07–FE-10 wire them to the real API, so simulated behaviour can never be mistaken for working behaviour.
+
+Reusable journey components live in `src/features/booking/` and are pure and prop-driven, so FE-07–FE-10 wire the *same* components to the real API client — nothing in the prototype is throwaway except its simulation.
 
 Next: **FE-01/02/03** (S1 page content), which need BE-01/02/03 and therefore D-01. `frontend.md` forbids closing those tickets on mocked data alone.
 

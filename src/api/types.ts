@@ -12,6 +12,9 @@ import type { components } from './schema'
 
 type Schemas = components['schemas']
 
+export type Id = Schemas['Id']
+export type Instant = Schemas['Instant']
+export type LocalDate = Schemas['LocalDate']
 export type CurrentUser = Schemas['CurrentUser']
 export type RoleKey = Schemas['RoleKey']
 export type Capability = Schemas['Capability']
