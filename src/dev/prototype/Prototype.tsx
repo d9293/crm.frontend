@@ -21,11 +21,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { AvailabilityResponse, Reservation } from '../../api/types'
+import type { AvailabilityResponse, CancellationRequest, Reservation } from '../../api/types'
 import { AvailabilityPicker, type SlotSelection } from '../../features/booking/AvailabilityPicker'
 import { RequestSummary } from '../../features/booking/RequestSummary'
 import { ReservationStatusCard } from '../../features/booking/ReservationStatusCard'
 import { ApprovalQueue } from '../../features/booking/ApprovalQueue'
+import { CancellationQueue } from '../../features/booking/CancellationQueue'
 import { DecisionDialog } from '../../components/DecisionDialog'
 import { InlineAlert } from '../../components/InlineAlert'
 import { ThemeSelect } from '../../shells/HeaderControls'
@@ -54,6 +55,7 @@ export default function Prototype() {
 interface Snapshot {
   mine: Reservation[]
   queue: Reservation[]
+  cancellations: CancellationRequest[]
   availability: AvailabilityResponse
   serverTime: string
 }
@@ -90,6 +92,7 @@ function PrototypeRun({
       return {
         mine: own.items,
         queue: all.items,
+        cancellations: server.listCancellations('employee').items,
         availability: server.getAvailability(forDate, forDuration),
         serverTime: all.serverTime,
       }
@@ -108,6 +111,17 @@ function PrototypeRun({
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null)
   const [rejecting, setRejecting] = useState<Reservation | null>(null)
   const [justDecidedId, setJustDecidedId] = useState<number | null>(null)
+  const [cancelling, setCancelling] = useState<Reservation | null>(null)
+  const [cancelNotice, setCancelNotice] = useState<string | null>(null)
+  const [decidingCancellation, setDecidingCancellation] = useState<{
+    request: CancellationRequest
+    outcome: 'approve' | 'reject'
+  } | null>(null)
+  const [selectedCancellationId, setSelectedCancellationId] = useState<number | null>(null)
+  const [cancellationNotice, setCancellationNotice] = useState<{
+    title: string
+    message: string
+  } | null>(null)
 
   const refresh = useCallback(() => {
     setSnapshot(read(date, duration))
@@ -191,6 +205,51 @@ function PrototypeRun({
 
     setQueueNotice(
       result.ok ? null : { title: noticeTitle(result.code), message: noticeMessage(result.code) },
+    )
+    setSnapshot(read(date, duration))
+  }
+
+  function submitCancellation(reason: string | null) {
+    if (!cancelling) return
+    setSubmitting(true)
+    const result = server.requestCancellation(cancelling.id, reason)
+    setSubmitting(false)
+    setCancelling(null)
+
+    // The cutoff is the server's answer, not the client's. A refusal is
+    // explained with the actual deadline rather than a generic failure.
+    setCancelNotice(
+      result.ok
+        ? null
+        : result.code === 'CANCELLATION_CUTOFF_PASSED'
+          ? 'Срок истёк: отменить бронь можно не позднее чем за 2 часа до начала.'
+          : 'Эту бронь нельзя отменить.',
+    )
+    setSnapshot(read(date, duration))
+  }
+
+  function decideCancellation(reason: string | null) {
+    if (!decidingCancellation) return
+    const { request, outcome } = decidingCancellation
+
+    setSubmitting(true)
+    const result =
+      outcome === 'approve'
+        ? server.approveCancellation(request.id, request.version, reason)
+        : server.rejectCancellation(request.id, request.version, reason)
+    setSubmitting(false)
+    setDecidingCancellation(null)
+
+    setCancellationNotice(
+      result.ok
+        ? null
+        : {
+            title: result.code === 'INVALID_TRANSITION' ? 'Запрос уже рассмотрен' : 'Данные устарели',
+            message:
+              result.code === 'INVALID_TRANSITION'
+                ? 'Решение принял другой администратор. Показан итоговый статус.'
+                : 'Запись изменилась. Обновите список и повторите.',
+          },
     )
     setSnapshot(read(date, duration))
   }
@@ -338,12 +397,32 @@ function PrototypeRun({
           )}
 
           <h3 style={{ margin: 'var(--crm-space-5) 0 var(--crm-space-3)' }}>Мои брони</h3>
+
+          {/* A refused cancellation is explained with the real reason. The
+              server decided it, so the message states the rule rather than
+              blaming the user vaguely. */}
+          {cancelNotice && (
+            <div style={{ marginBottom: 'var(--crm-space-3)' }}>
+              <InlineAlert
+                tone="warning"
+                title="Запрос на отмену не принят"
+                action={{ label: 'Понятно', onClick: () => setCancelNotice(null) }}
+              >
+                {cancelNotice}
+              </InlineAlert>
+            </div>
+          )}
+
           {snapshot.mine.length === 0 ? (
             <p className="crm-muted">Заявок пока нет.</p>
           ) : (
             <div style={{ display: 'grid', gap: 'var(--crm-space-3)' }}>
               {snapshot.mine.map((reservation) => (
-                <ReservationStatusCard key={reservation.id} reservation={reservation} />
+                <ReservationStatusCard
+                  key={reservation.id}
+                  reservation={reservation}
+                  onRequestCancellation={() => setCancelling(reservation)}
+                />
               ))}
             </div>
           )}
@@ -363,6 +442,21 @@ function PrototypeRun({
             notice={queueNotice}
             onRefresh={refresh}
           />
+
+          <h3 style={{ margin: 'var(--crm-space-6) 0 var(--crm-space-3)' }}>
+            Запросы на отмену (P11)
+          </h3>
+          <CancellationQueue
+            requests={snapshot.cancellations}
+            serverTime={snapshot.serverTime}
+            selectedId={selectedCancellationId}
+            onSelect={setSelectedCancellationId}
+            onApprove={(request) => setDecidingCancellation({ request, outcome: 'approve' })}
+            onReject={(request) => setDecidingCancellation({ request, outcome: 'reject' })}
+            submitting={submitting}
+            notice={cancellationNotice}
+            onRefresh={refresh}
+          />
         </section>
       </div>
 
@@ -375,6 +469,40 @@ function PrototypeRun({
         submitting={submitting}
         onConfirm={reject}
         onCancel={() => setRejecting(null)}
+      />
+
+      {/* Customer-side review step. The consequence names what a customer
+          most easily misreads: the booking stays live until an administrator
+          approves, and no money comes back automatically. */}
+      <DecisionDialog
+        open={cancelling !== null}
+        title="Запросить отмену брони"
+        consequence="Бронь останется действующей, пока администратор не одобрит отмену. Отмена брони не оформляет возврат автоматически."
+        confirmLabel="Запросить отмену"
+        reasonPolicy="optional"
+        reasonLabel="Причина отмены"
+        submitting={submitting}
+        onConfirm={submitCancellation}
+        onCancel={() => setCancelling(null)}
+      />
+
+      <DecisionDialog
+        open={decidingCancellation !== null}
+        title={
+          decidingCancellation?.outcome === 'approve' ? 'Одобрить отмену' : 'Отклонить запрос'
+        }
+        consequence={
+          decidingCancellation?.outcome === 'approve'
+            ? 'Бронь будет отменена, корт освободится. Возврат денег не оформляется автоматически.'
+            : 'Бронь останется действующей, корт останется занятым. Деньги не затрагиваются.'
+        }
+        confirmLabel={
+          decidingCancellation?.outcome === 'approve' ? 'Одобрить отмену' : 'Отклонить запрос'
+        }
+        reasonPolicy="optional"
+        submitting={submitting}
+        onConfirm={decideCancellation}
+        onCancel={() => setDecidingCancellation(null)}
       />
     </div>
   )

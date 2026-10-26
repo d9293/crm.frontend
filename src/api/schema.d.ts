@@ -575,6 +575,144 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reservations/{reservation_id}/cancellation-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reservation_id: components["parameters"]["ReservationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Customer requests cancellation of a confirmed reservation
+         * @description Confirmed behaviour (BR-07, BR-08): a customer may request cancellation
+         *     at least two hours before the reservation starts, an administrator
+         *     decides, and the slot stays reserved while the request is pending.
+         *
+         *     **The cutoff is enforced on the server, at submission.** The condition
+         *     is `database_now <= starts_at - 2 hours`. For a 15:00 start, 13:00:00
+         *     is accepted and 13:00:01 is not (AC-05). A customer who opened the form
+         *     before the cutoff and submits after it is refused — the client's own
+         *     clock and the moment the page loaded are both irrelevant.
+         *
+         *     **The reservation does not change state.** It remains `confirmed` and
+         *     keeps occupying its resources until a decision is made, so a pending
+         *     request must never be displayed as though the booking were already
+         *     cancelled or uncertain (BR-08, UX-04).
+         *
+         *     **At most one active request per reservation.** A duplicate submission
+         *     returns the existing request rather than creating a second, so a
+         *     double-tap cannot produce two queue entries.
+         *
+         *     **No money moves.** BR-09 is explicit that cancellation does not
+         *     refund. This operation touches no payment, charge or entitlement.
+         *
+         *     Whether a customer may resubmit after a rejection, and how a pending
+         *     request interacts with rescheduling, are **D-07**. Do not infer either.
+         */
+        post: operations["createCancellationRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cancellation-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cancellation requests within the caller's scope
+         * @description Serves the P11 administrator queue, and a customer's view of their own
+         *     requests. Scope comes from the session: a customer sees only their own,
+         *     an administrator only permitted locations.
+         *
+         *     Default ordering is by `reservation_starts_at` ascending — the booking
+         *     starting soonest needs a decision soonest. This differs from the
+         *     reservation approval queue, which orders by hold expiry, because a
+         *     cancellation request has no expiry of its own. `README.md` section 6 is
+         *     explicit that no second timeout should be invented for it.
+         */
+        get: operations["listCancellationRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cancellation-requests/{cancellation_request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cancellation_request_id: components["parameters"]["CancellationRequestId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Administrator approves a cancellation
+         * @description Requires `cancellations.decide` and permission for the reservation's
+         *     location — Administrator or Power User.
+         *
+         *     One transaction records the decision, transitions the reservation to
+         *     `canceled` and releases **all** its allocations, so the slot becomes
+         *     bookable immediately rather than at the next sweep (BR-08).
+         *
+         *     **No money moves.** BR-09: approval does not refund, write off debt, or
+         *     touch payroll. Any financial consequence is a separate, explicit act
+         *     governed by D-09. The confirmation UI must say so rather than offering
+         *     an implicit refund checkbox.
+         *
+         *     A duplicate approval must not release resources twice or emit duplicate
+         *     events; the committed decision is returned instead.
+         *
+         *     Whether an administrator may decide after the cutoff — or after the
+         *     reservation has started — is **D-07**, as is staff override. Those
+         *     paths are not specified here.
+         */
+        post: operations["approveCancellationRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cancellation-requests/{cancellation_request_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cancellation_request_id: components["parameters"]["CancellationRequestId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Administrator rejects a cancellation
+         * @description Records the decision and leaves the reservation exactly as it was:
+         *     still `confirmed`, still occupying its resources (BR-08). No money
+         *     moves in either direction.
+         *
+         *     Whether the customer may submit a new request afterwards is **D-07**.
+         */
+        post: operations["rejectCancellationRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1023,20 +1161,77 @@ export interface components {
             can_confirm: boolean;
             can_reject: boolean;
             /**
-             * @description Set from S4 when a cancellation request exists. A pending
-             *     cancellation leaves the reservation `confirmed` and occupying
-             *     its resources — the two states are shown together, never
-             *     collapsed into one ambiguous status (UX-04).
+             * @description Set when a cancellation request exists. A pending cancellation
+             *     leaves the reservation `confirmed` and occupying its resources
+             *     — the two states are shown together, never collapsed into one
+             *     ambiguous status (UX-04).
              */
             cancellation_request_state?: components["schemas"]["CancellationState"] | null;
+            /**
+             * @description `starts_at` minus two hours — the latest instant at which a
+             *     cancellation request is accepted (BR-07).
+             *
+             *     Returned so the UI can state the exact deadline («Отмену можно
+             *     запросить до 13:00, 25 октября») rather than computing it. A
+             *     client doing its own arithmetic would show the wrong deadline
+             *     whenever its clock or timezone is off, and UX-03 requires the
+             *     customer to identify the cutoff correctly.
+             */
+            cancellation_cutoff_at?: components["schemas"]["Instant"] | null;
+            /**
+             * @description The server's judgement, combining state, the cutoff against
+             *     database time, ownership and whether an active request already
+             *     exists.
+             *
+             *     Like `can_confirm`, this exists so the client never decides.
+             *     The action must disappear at the server-derived cutoff even if
+             *     the browser believes there is still time.
+             */
+            can_request_cancellation: boolean;
         };
         /**
-         * @description Separate record from the reservation (S4, BE-08). Declared here so S3
-         *     clients can render the combined confirmed-plus-pending-cancellation
-         *     state without a contract change.
+         * @description State of the cancellation *request*, which is a record separate from
+         *     the reservation (BE-08). While `pending`, the reservation stays
+         *     `confirmed` and keeps its resources — the two are never merged into a
+         *     single status.
          * @enum {string}
          */
         CancellationState: "pending" | "approved" | "rejected";
+        CancellationRequest: {
+            id: components["schemas"]["Id"];
+            reservation_id: components["schemas"]["Id"];
+            state: components["schemas"]["CancellationState"];
+            requested_at: components["schemas"]["Instant"];
+            reservation_starts_at: components["schemas"]["Instant"] & unknown;
+            cancellation_cutoff_at: components["schemas"]["Instant"] & unknown;
+            /** @description Customer's comment, where supplied and safe to show. */
+            reason?: string | null;
+            decided_at?: components["schemas"]["Instant"] | null;
+            /** @description Authorized callers only. */
+            decided_by_user_id?: components["schemas"]["Id"] | null;
+            decision_reason?: string | null;
+            /** @description Authorized staff only. */
+            customer_display_name?: string | null;
+            /**
+             * @description Embedded booking context for the P11 queue, so deciding does not
+             *     require a second request per row. Includes the payment summary only
+             *     when the actor has finance visibility.
+             */
+            reservation?: components["schemas"]["ReservationSummary"] | null;
+            server_time: components["schemas"]["Instant"];
+            /**
+             * @description Whether this actor may decide this request now. False for a
+             *     customer, and false once decided. Post-cutoff and post-start
+             *     decision authority is D-07, so this field must not be read as
+             *     settling it.
+             */
+            can_decide: boolean;
+            version: components["schemas"]["Version"];
+        };
+        CancellationCutoffError: components["schemas"]["Error"] & {
+            server_time?: components["schemas"]["Instant"] & unknown;
+            cancellation_cutoff_at?: components["schemas"]["Instant"];
+        };
         /**
          * @description Note what is absent and cannot be supplied: customer, requester, state,
          *     `hold_expires_at` and any price. The server derives identity from the
@@ -1177,6 +1372,7 @@ export interface components {
         LocationId: components["schemas"]["Id"];
         ResourceId: components["schemas"]["Id"];
         ReservationId: components["schemas"]["Id"];
+        CancellationRequestId: components["schemas"]["Id"];
     };
     requestBodies: never;
     headers: {
@@ -2277,6 +2473,231 @@ export interface operations {
                 };
             };
             422: components["responses"]["ValidationFailed"];
+        };
+    };
+    createCancellationRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description CSRF token for state-changing requests, paired with the session
+                 *     cookie. Required on every POST, PATCH and DELETE.
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                reservation_id: components["parameters"]["ReservationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: components["schemas"]["Reason"] & unknown;
+                };
+            };
+        };
+        responses: {
+            /**
+             * @description An active request already exists. The existing record is returned
+             *     rather than a second one being created.
+             */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationRequest"];
+                };
+            };
+            /** @description Request submitted. The reservation remains confirmed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationRequest"];
+                };
+            };
+            401: components["responses"]["NotAuthenticated"];
+            /**
+             * @description The caller lacks `cancellations.request_own`, or the reservation
+             *     belongs to another customer.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /**
+             * @description `CANCELLATION_CUTOFF_PASSED` — submission is later than
+             *     `starts_at - 2 hours`. The response carries both `server_time` and
+             *     `cancellation_cutoff_at` so the UI can explain precisely what was
+             *     missed instead of blaming the user vaguely.
+             *
+             *     `INVALID_TRANSITION` — the reservation is not confirmed; a pending,
+             *     rejected, expired or already-cancelled booking cannot be
+             *     cancelled.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationCutoffError"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    listCancellationRequests: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                location_id?: components["schemas"]["Id"];
+                state?: components["schemas"]["CancellationState"][];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated cancellation requests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageEnvelope"] & {
+                        items: components["schemas"]["CancellationRequest"][];
+                        server_time: components["schemas"]["Instant"];
+                    };
+                };
+            };
+            401: components["responses"]["NotAuthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    approveCancellationRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description CSRF token for state-changing requests, paired with the session
+                 *     cookie. Required on every POST, PATCH and DELETE.
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /**
+                 * @description `ETag` from the last read of this record. A stale value fails with
+                 *     409 `VERSION_CONFLICT` and the response carries `current_version`, so
+                 *     the client can show a conflict rather than overwrite another user's
+                 *     change.
+                 * @example "7"
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                cancellation_request_id: components["parameters"]["CancellationRequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: components["schemas"]["Reason"];
+                };
+            };
+        };
+        responses: {
+            /**
+             * @description Approved. The reservation is `canceled` and its resources are free.
+             *     Any payment it had is unaffected and remains in financial totals.
+             */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationRequest"];
+                };
+            };
+            401: components["responses"]["NotAuthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /**
+             * @description `INVALID_TRANSITION` — already decided by another administrator.
+             *
+             *     `VERSION_CONFLICT` — stale `If-Match`, including the case where the
+             *     underlying booking changed since the request was read.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    rejectCancellationRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description CSRF token for state-changing requests, paired with the session
+                 *     cookie. Required on every POST, PATCH and DELETE.
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                /**
+                 * @description `ETag` from the last read of this record. A stale value fails with
+                 *     409 `VERSION_CONFLICT` and the response carries `current_version`, so
+                 *     the client can show a conflict rather than overwrite another user's
+                 *     change.
+                 * @example "7"
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                cancellation_request_id: components["parameters"]["CancellationRequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: components["schemas"]["Reason"];
+                };
+            };
+        };
+        responses: {
+            /** @description Rejected. The booking is untouched. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationRequest"];
+                };
+            };
+            401: components["responses"]["NotAuthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Already decided, or stale `If-Match`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
 }

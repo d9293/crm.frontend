@@ -22,7 +22,7 @@ import type { Reservation } from '../../api/types'
 import { HoldTimer } from '../../components/HoldTimer'
 import { PaymentBadge, ReservationBadge } from '../../components/StatusBadge'
 import { InlineAlert } from '../../components/InlineAlert'
-import { formatDate, formatInterval, formatMoney } from '../../lib/format'
+import { formatDate, formatInterval, formatMoney, formatTime } from '../../lib/format'
 import './booking.css'
 
 interface ReservationStatusCardProps {
@@ -31,6 +31,8 @@ interface ReservationStatusCardProps {
   onRefresh?: () => void
   /** Returns the customer to slot selection. */
   onChooseAnother?: () => void
+  /** Opens the cancellation-request flow. Rendered only when the server allows it. */
+  onRequestCancellation?: () => void
   offline?: boolean
 }
 
@@ -38,6 +40,7 @@ export function ReservationStatusCard({
   reservation,
   onRefresh,
   onChooseAnother,
+  onRequestCancellation,
   offline = false,
 }: ReservationStatusCardProps) {
   const courts = reservation.allocations.map((allocation) => allocation.resource_name).join(', ')
@@ -104,11 +107,58 @@ export function ReservationStatusCard({
       )}
 
       {reservation.state === 'confirmed' && (
-        <InlineAlert tone="info" title="Бронь подтверждена">
-          {outstanding > 0
-            ? `Оплатить можно позже. К оплате ${formatMoney(outstanding)}.`
-            : 'Корт зарезервирован за вами.'}
-        </InlineAlert>
+        <>
+          <InlineAlert tone="info" title="Бронь подтверждена">
+            {outstanding > 0
+              ? `Оплатить можно позже. К оплате ${formatMoney(outstanding)}.`
+              : 'Корт зарезервирован за вами.'}
+          </InlineAlert>
+
+          {/* A pending cancellation does NOT change the booking: it stays
+              confirmed and keeps the court. Saying so plainly prevents the
+              customer assuming the slot is already released (BR-08). */}
+          {reservation.cancellation_request_state === 'pending' && (
+            <InlineAlert tone="warning" title="Запрос на отмену отправлен">
+              Бронь останется действующей, пока администратор не одобрит
+              отмену. Отмена брони не оформляет возврат автоматически.
+            </InlineAlert>
+          )}
+
+          {/* The action appears only while the server says it may. The exact
+              deadline comes from the server too — UX-03 requires the customer
+              to be able to identify it, and a client computing it would be
+              wrong whenever its clock is off. */}
+          {reservation.can_request_cancellation && onRequestCancellation && (
+            <>
+              {reservation.cancellation_cutoff_at && (
+                <p className="crm-meta">
+                  Отмену можно запросить до{' '}
+                  <span className="crm-numeric">
+                    {formatTime(reservation.cancellation_cutoff_at)}
+                  </span>
+                  , {formatDate(reservation.cancellation_cutoff_at)}.
+                </p>
+              )}
+              <button type="button" className="shell__control" onClick={onRequestCancellation}>
+                Запросить отмену
+              </button>
+            </>
+          )}
+
+          {/* Past the deadline with no request open: explain, and promise
+              nothing. No invented phone number, no hint of an override. */}
+          {!reservation.can_request_cancellation &&
+            reservation.cancellation_request_state === null &&
+            reservation.cancellation_cutoff_at && (
+              <p className="crm-meta">
+                Срок самостоятельной отмены истёк — её можно было запросить до{' '}
+                <span className="crm-numeric">
+                  {formatTime(reservation.cancellation_cutoff_at)}
+                </span>
+                , {formatDate(reservation.cancellation_cutoff_at)}.
+              </p>
+            )}
+        </>
       )}
 
       {reservation.state === 'rejected' && (

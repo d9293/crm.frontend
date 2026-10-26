@@ -26,6 +26,7 @@
  */
 
 import type {
+  CancellationRequest,
   AvailabilityResponse,
   AvailabilitySlot,
   Id,
@@ -39,6 +40,17 @@ import { BUSINESS_TIMEZONE } from '../../lib/format'
 
 /** Confirmed by BR-04. Shortened only for demonstration — see options. */
 export const REAL_HOLD_SECONDS = 300
+
+/**
+ * Confirmed by BR-07: a cancellation request is accepted up to two hours
+ * before the reservation starts, inclusive of exactly two hours.
+ *
+ * Not configurable, and not shortened for demonstration. The hold length can
+ * be shortened because a reviewer must watch it lapse; the cutoff is read off
+ * a displayed deadline, so there is nothing to wait for and no reason to show
+ * a number that differs from the agreed rule.
+ */
+export const CANCELLATION_CUTOFF_HOURS = 2
 
 const LOCATION_ID = 1
 
@@ -119,9 +131,24 @@ export interface FakeServerOptions {
   holdSeconds?: number
 }
 
+interface CancellationRecord {
+  id: Id
+  reservationId: Id
+  state: 'pending' | 'approved' | 'rejected'
+  requestedAt: Date
+  reservationStartsAt: Date
+  cutoffAt: Date
+  reason: string | null
+  decidedAt: Date | null
+  decisionReason: string | null
+  version: number
+}
+
 export class FakeServer {
   private records: Record_[] = []
+  private cancellations: CancellationRecord[] = []
   private nextId = 5120
+  private nextCancellationId = 311
   private readonly holdSeconds: number
 
   constructor(options: FakeServerOptions = {}) {
@@ -419,6 +446,200 @@ export class FakeServer {
     return record ? this.toContract(record, viewer) : null
   }
 
+  /* --- cancellation (BR-07, BR-08, BR-09) -------------------------------- */
+
+  private cutoffFor(startsAt: Date): Date {
+    return new Date(startsAt.getTime() - CANCELLATION_CUTOFF_HOURS * 3_600_000)
+  }
+
+  private activeCancellation(reservationId: Id): CancellationRecord | undefined {
+    return this.cancellations.find(
+      (request) => request.reservationId === reservationId && request.state === 'pending',
+    )
+  }
+
+  /**
+   * Customer requests cancellation.
+   *
+   * The cutoff is evaluated here, at submission, against the server clock —
+   * not when the form was opened. `now <= starts_at - 2h` is accepted, so for
+   * a 15:00 start 13:00:00 passes and 13:00:01 does not (AC-05).
+   */
+  requestCancellation(
+    reservationId: Id,
+    reason: string | null,
+  ):
+    | { ok: true; existing: boolean; request: CancellationRequest }
+    | {
+        ok: false
+        code: 'CANCELLATION_CUTOFF_PASSED' | 'INVALID_TRANSITION' | 'NOT_FOUND'
+        cutoffAt?: string
+        serverTime: string
+      } {
+    this.settleExpiries()
+    const now = this.now()
+    const serverTime = now.toISOString()
+
+    const reservation = this.records.find((record) => record.id === reservationId)
+    if (!reservation) return { ok: false, code: 'NOT_FOUND', serverTime }
+
+    // Only a confirmed booking can be cancelled. A pending, rejected, expired
+    // or already-cancelled one cannot.
+    if (reservation.state !== 'confirmed') {
+      return { ok: false, code: 'INVALID_TRANSITION', serverTime }
+    }
+
+    // At most one active request. A double-tap returns the existing one rather
+    // than filling the queue with duplicates.
+    const existing = this.activeCancellation(reservationId)
+    if (existing) {
+      return { ok: true, existing: true, request: this.cancellationToContract(existing, 'customer') }
+    }
+
+    const cutoffAt = this.cutoffFor(reservation.startsAt)
+    if (now.getTime() > cutoffAt.getTime()) {
+      return {
+        ok: false,
+        code: 'CANCELLATION_CUTOFF_PASSED',
+        cutoffAt: cutoffAt.toISOString(),
+        serverTime,
+      }
+    }
+
+    const record: CancellationRecord = {
+      id: this.nextCancellationId++,
+      reservationId,
+      state: 'pending',
+      requestedAt: now,
+      // Captured now, so a later reschedule cannot change what the customer
+      // asked to cancel.
+      reservationStartsAt: reservation.startsAt,
+      cutoffAt,
+      reason,
+      decidedAt: null,
+      decisionReason: null,
+      version: 1,
+    }
+
+    this.cancellations.push(record)
+    // The reservation deliberately stays `confirmed` and keeps its
+    // allocations while the request is pending (BR-08).
+    return { ok: true, existing: false, request: this.cancellationToContract(record, 'customer') }
+  }
+
+  approveCancellation(id: Id, expectedVersion: number, reason: string | null) {
+    return this.decideCancellation(id, expectedVersion, 'approved', reason)
+  }
+
+  rejectCancellation(id: Id, expectedVersion: number, reason: string | null) {
+    return this.decideCancellation(id, expectedVersion, 'rejected', reason)
+  }
+
+  private decideCancellation(
+    id: Id,
+    expectedVersion: number,
+    outcome: 'approved' | 'rejected',
+    reason: string | null,
+  ):
+    | { ok: true; request: CancellationRequest }
+    | {
+        ok: false
+        code: 'INVALID_TRANSITION' | 'VERSION_CONFLICT' | 'NOT_FOUND'
+        serverTime: string
+      } {
+    this.settleExpiries()
+    const serverTime = this.now().toISOString()
+
+    const request = this.cancellations.find((candidate) => candidate.id === id)
+    if (!request) return { ok: false, code: 'NOT_FOUND', serverTime }
+
+    if (request.state !== 'pending') {
+      // Another administrator already decided; the committed outcome stands
+      // and resources are not released a second time.
+      return { ok: false, code: 'INVALID_TRANSITION', serverTime }
+    }
+
+    if (request.version !== expectedVersion) {
+      return { ok: false, code: 'VERSION_CONFLICT', serverTime }
+    }
+
+    request.state = outcome
+    request.decidedAt = this.now()
+    request.decisionReason = reason
+    request.version += 1
+
+    if (outcome === 'approved') {
+      const reservation = this.records.find((record) => record.id === request.reservationId)
+      if (reservation) {
+        // One step: decision recorded, reservation cancelled, resources
+        // released — activeRecords() stops counting it immediately.
+        reservation.state = 'canceled'
+        reservation.version += 1
+      }
+    }
+
+    // Rejection leaves the reservation exactly as it was: confirmed and
+    // occupying its court. No money moves either way (BR-09).
+    return { ok: true, request: this.cancellationToContract(request, 'employee') }
+  }
+
+  listCancellations(viewer: 'customer' | 'employee'): {
+    items: CancellationRequest[]
+    serverTime: string
+  } {
+    this.settleExpiries()
+
+    const items = this.cancellations
+      .slice()
+      // Soonest booking first: a cancellation request has no expiry of its
+      // own, and README section 6 forbids inventing a second timeout for it.
+      .sort((a, b) => a.reservationStartsAt.getTime() - b.reservationStartsAt.getTime())
+      .map((request) => this.cancellationToContract(request, viewer))
+
+    return { items, serverTime: this.now().toISOString() }
+  }
+
+  private cancellationToContract(
+    record: CancellationRecord,
+    viewer: 'customer' | 'employee',
+  ): CancellationRequest {
+    const reservation = this.records.find((candidate) => candidate.id === record.reservationId)
+
+    return {
+      id: record.id,
+      reservation_id: record.reservationId,
+      state: record.state,
+      requested_at: record.requestedAt.toISOString(),
+      reservation_starts_at: record.reservationStartsAt.toISOString(),
+      cancellation_cutoff_at: record.cutoffAt.toISOString(),
+      reason: record.reason,
+      decided_at: record.decidedAt?.toISOString() ?? null,
+      decided_by_user_id: null,
+      decision_reason: record.decisionReason,
+      customer_display_name:
+        viewer === 'employee' ? (reservation?.customerDisplayName ?? null) : null,
+      reservation: reservation ? this.toSummary(reservation, viewer) : null,
+      server_time: this.now().toISOString(),
+      can_decide: viewer === 'employee' && record.state === 'pending',
+      version: record.version,
+    }
+  }
+
+  private toSummary(record: Record_, viewer: 'customer' | 'employee') {
+    const full = this.toContract(record, viewer)
+    return {
+      id: full.id,
+      state: full.state,
+      location_id: full.location_id,
+      starts_at: full.starts_at,
+      ends_at: full.ends_at,
+      allocations: full.allocations,
+      hold_expires_at: full.hold_expires_at,
+      customer_display_name: full.customer_display_name,
+      version: full.version,
+    }
+  }
+
   /** Seeds an occupied slot, so a conflict can be demonstrated. */
   seedConfirmed(input: { resourceIds: Id[]; startsAt: string; endsAt: string }): void {
     const now = this.now()
@@ -443,6 +664,12 @@ export class FakeServer {
     const now = this.now()
     const pending = record.state === 'pending_confirmation'
     const live = pending && now.getTime() < record.holdExpiresAt.getTime()
+
+    // A pending request takes precedence over a historical decided one, so a
+    // live cancellation is never hidden behind an earlier rejection.
+    const activeOrLatestCancellation =
+      this.activeCancellation(record.id) ??
+      this.cancellations.filter((request) => request.reservationId === record.id).at(-1)
 
     return {
       id: record.id,
@@ -494,7 +721,16 @@ export class FakeServer {
       // if a client misreads the timestamps.
       can_confirm: viewer === 'employee' && live,
       can_reject: viewer === 'employee' && live,
-      cancellation_request_state: null,
+      cancellation_request_state: activeOrLatestCancellation?.state ?? null,
+      cancellation_cutoff_at:
+        record.state === 'confirmed' ? this.cutoffFor(record.startsAt).toISOString() : null,
+      // Combines state, the cutoff against server time, ownership, and whether
+      // a request is already open. The customer's own clock never enters it.
+      can_request_cancellation:
+        viewer === 'customer' &&
+        record.state === 'confirmed' &&
+        now.getTime() <= this.cutoffFor(record.startsAt).getTime() &&
+        this.activeCancellation(record.id) === undefined,
       version: record.version,
     }
   }
